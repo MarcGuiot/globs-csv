@@ -20,10 +20,10 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.Format;
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 public class ExportBySize {
@@ -35,6 +35,7 @@ public class ExportBySize {
     private String defaultDoubleFormat;
     private String trueValue;
     private String falseValue;
+    private ExportGlob exportGlob;
 
     public ExportBySize() {
     }
@@ -42,16 +43,30 @@ public class ExportBySize {
     public ExportBySize withSeparator(char separator) {
         withSeparator = true;
         this.separator = separator;
+        exportGlob = null;
         return this;
     }
 
     public ExportBySize withPadding() {
         withPadding = true;
+        exportGlob = null;
         return this;
     }
 
     public void export(Stream<Glob> globStream, StringWriter writer) {
-        globStream.forEach(new ExportGlob(this, writer, withPadding ? new RealPaddingFactory() : field -> Padding.NOPADDING));
+        if (exportGlob == null) {
+            exportGlob = new ExportGlob(this, withPadding ? new RealPaddingFactory() : field -> Padding.NOPADDING);
+        }
+        globStream.forEach(glob -> {
+            exportGlob.accept(glob, writer);
+        });
+    }
+
+    public void exportHeader(GlobType headerType, StringWriter writer) {
+        if (exportGlob == null) {
+            exportGlob = new ExportGlob(this, withPadding ? new RealPaddingFactory() : field -> Padding.NOPADDING);
+        }
+        exportGlob.exportHeader(headerType, writer);
     }
 
     public String getDefaultDateFormat() {
@@ -60,19 +75,24 @@ public class ExportBySize {
 
     public void setDefaultDateFormat(String defaultDateFormat) {
         this.defaultDateFormat = defaultDateFormat;
+        exportGlob = null;
     }
 
     public void setDefaultDoubleFormat(String defaultDoubleFormat) {
         this.defaultDoubleFormat = defaultDoubleFormat;
+        exportGlob = null;
     }
 
     public void setBooleanValue(String trueValue, String falseValue) {
         this.trueValue = trueValue;
         this.falseValue = falseValue;
+        exportGlob = null;
     }
 
     interface FieldWrite {
         void write(Glob glob, Writer writer) throws IOException;
+
+        void writeHeader(Writer writer) throws IOException;
     }
 
     interface AddSeperator {
@@ -147,13 +167,11 @@ public class ExportBySize {
 
     static class WriteObject {
         private final ExportBySize exportBySize;
-        private final Writer writer;
         private final List<FieldWrite> fieldWrites = new ArrayList<>();
         private final AddSeperator separator;
 
-        public WriteObject(ExportBySize exportBySize, Writer writer, GlobType type, AddSeperator separator, PaddingFactory paddingFactory) {
+        public WriteObject(ExportBySize exportBySize, GlobType type, AddSeperator separator, PaddingFactory paddingFactory) {
             this.exportBySize = exportBySize;
-            this.writer = writer;
             this.separator = separator;
             for (Field field : type.getFields()) {
                 Padding padding = paddingFactory.create(field);
@@ -165,7 +183,15 @@ public class ExportBySize {
             }
         }
 
-        public void write(Glob glob) throws IOException {
+        public void writeHeader(Writer writer) throws IOException {
+            for (Iterator<FieldWrite> iterator = fieldWrites.iterator(); iterator.hasNext(); ) {
+                FieldWrite fieldWrite = iterator.next();
+                fieldWrite.writeHeader(writer);
+                separator.seperate(writer, !iterator.hasNext());
+            }
+        }
+
+        public void write(Glob glob, Writer writer) throws IOException {
             for (Iterator<FieldWrite> iterator = fieldWrites.iterator(); iterator.hasNext(); ) {
                 FieldWrite fieldWrite = iterator.next();
                 fieldWrite.write(glob, writer);
@@ -212,14 +238,31 @@ public class ExportBySize {
         public void visitDate(DateField field) throws Exception {
             fieldWrite = new DateFieldWrite(exportBySize, field, padding);
         }
+
+        public void visitDateTime(DateTimeField field) throws Exception {
+            fieldWrite = new DatetimeFieldWrite(exportBySize, field, padding);
+        }
+    }
+
+    static abstract class HeaderFieldWrite implements FieldWrite {
+        final Field field;
+
+        protected HeaderFieldWrite(Field field) {
+            this.field = field;
+        }
+
+        public void writeHeader(Writer writer) throws IOException {
+            writer.append(field.getName());
+        }
     }
 
 
-    static class StringFieldWrite implements FieldWrite {
+    static class StringFieldWrite extends HeaderFieldWrite {
         private final Padding padding;
         private final StringField field;
 
         public StringFieldWrite(StringField field, Padding padding) {
+            super(field);
             this.field = field;
             this.padding = padding;
         }
@@ -230,11 +273,12 @@ public class ExportBySize {
         }
     }
 
-    static class IntegerFieldWrite implements FieldWrite {
+    static class IntegerFieldWrite extends HeaderFieldWrite {
         private IntegerField field;
         private Padding padding;
 
         public IntegerFieldWrite(IntegerField field, Padding padding) {
+            super(field);
             this.field = field;
             this.padding = padding;
         }
@@ -245,13 +289,15 @@ public class ExportBySize {
         }
     }
 
-    static class BooleanFieldWrite implements FieldWrite {
+
+    static class BooleanFieldWrite extends HeaderFieldWrite {
         private BooleanField field;
         private Padding padding;
         private String TRUE;
         private String FALSE;
 
         public BooleanFieldWrite(ExportBySize exportBySize, BooleanField field, Padding padding) {
+            super(field);
             this.field = field;
             this.padding = padding;
             Glob booleanFormat = field.findAnnotation(ExportBooleanFormat.KEY);
@@ -272,12 +318,13 @@ public class ExportBySize {
         }
     }
 
-    static class LongFieldWrite implements FieldWrite {
+    static class LongFieldWrite extends HeaderFieldWrite {
         private LongField field;
         private Padding padding;
         private Format format;
 
         public LongFieldWrite(LongField field, Padding padding) {
+            super(field);
             this.field = field;
             this.padding = padding;
         }
@@ -289,12 +336,13 @@ public class ExportBySize {
         }
     }
 
-    static class DoubleFieldWrite implements FieldWrite {
+    static class DoubleFieldWrite extends HeaderFieldWrite {
         private DoubleField field;
         private Padding padding;
         private DecimalFormat format;
 
         public DoubleFieldWrite(ExportBySize exportBySize, DoubleField field, Padding padding) {
+            super(field);
             this.field = field;
             this.padding = padding;
             Glob exportDoubleFormat = field.findAnnotation(ExportDoubleFormat.KEY);
@@ -318,12 +366,13 @@ public class ExportBySize {
         }
     }
 
-    static class DateFieldWrite implements FieldWrite {
+    static class DateFieldWrite extends HeaderFieldWrite {
         private DateField field;
         private Padding padding;
         private DateTimeFormatter format;
 
         public DateFieldWrite(ExportBySize exportBySize, DateField field, Padding padding) {
+            super(field);
             this.field = field;
             this.padding = padding;
             Glob dateFormat = field.findAnnotation(ExportDateFormat.KEY);
@@ -346,12 +395,42 @@ public class ExportBySize {
         }
     }
 
-    static class DateAsIntFieldWrite implements FieldWrite {
+    static class DatetimeFieldWrite extends HeaderFieldWrite {
+        private DateTimeField field;
+        private Padding padding;
+        private DateTimeFormatter format;
+
+        public DatetimeFieldWrite(ExportBySize exportBySize, DateTimeField field, Padding padding) {
+            super(field);
+            this.field = field;
+            this.padding = padding;
+            Glob dateFormat = field.findAnnotation(ExportDateFormat.KEY);
+            if (dateFormat == null || dateFormat.get(ExportDateFormat.FORMAT) == null) {
+                if (Strings.isNotEmpty(exportBySize.defaultDateFormat)){
+                    format = DateTimeFormatter.ofPattern(exportBySize.defaultDateFormat);
+                }
+                else {
+                    LOGGER.warn("No date format, export to yyyy/MM/dd HH/mm/SS");
+                    format = DateTimeFormatter.ofPattern("yyyy/MM/dd HH/mm/SS");
+                }
+            } else {
+                format = DateTimeFormatter.ofPattern(dateFormat.get(ExportDateFormat.FORMAT));
+            }
+        }
+
+        public void write(Glob glob, Writer writer) throws IOException {
+            ZonedDateTime value = glob.get(field);
+            writer.append(padding.pad(value == null ? null : format.format(value)));
+        }
+    }
+
+    static class DateAsIntFieldWrite extends HeaderFieldWrite{
         private IntegerField field;
         private Padding padding;
         private DateTimeFormatter format;
 
         public DateAsIntFieldWrite(ExportBySize exportBySize, IntegerField field, Padding padding) {
+            super(field);
             this.field = field;
             this.padding = padding;
             Glob dateFormat = field.getAnnotation(ExportDateFormat.KEY);
@@ -374,32 +453,39 @@ public class ExportBySize {
         }
     }
 
-    private class ExportGlob implements Consumer<Glob>, Function<GlobType, WriteObject> {
+    private class ExportGlob {
         private ExportBySize exportBySize;
-        private final Writer writer;
         private final Map<GlobType, WriteObject> writeObjectMap = new HashMap<>();
         private PaddingFactory paddingFactory;
 
-        public ExportGlob(ExportBySize exportBySize, Writer writer, PaddingFactory paddingFactory) {
+        public ExportGlob(ExportBySize exportBySize, PaddingFactory paddingFactory) {
             this.exportBySize = exportBySize;
-            this.writer = writer;
             this.paddingFactory = paddingFactory;
         }
 
-        public void accept(Glob glob) {
+        public void accept(Glob glob,Writer writer) {
             GlobType type = glob.getType();
-            WriteObject writeObject = writeObjectMap.computeIfAbsent(type, this);
+            WriteObject writeObject = writeObjectMap.computeIfAbsent(type, this::apply);
             try {
-                writeObject.write(glob);
+                writeObject.write(glob, writer);
             } catch (IOException e) {
                 throw new RuntimeException("Error in export", e);
             }
         }
 
-        public WriteObject apply(GlobType globType) {
-            return new WriteObject(exportBySize, writer, globType,
+        private WriteObject apply(GlobType globType) {
+            return new WriteObject(exportBySize, globType,
                     withSeparator ? new RealAddSeparator(separator) : AddSeperator.NULL,
                     paddingFactory);
+        }
+
+        public void exportHeader(GlobType headerType, StringWriter writer) {
+            try {
+                WriteObject writeObject = writeObjectMap.computeIfAbsent(headerType, this::apply);
+                writeObject.writeHeader(writer);
+            } catch (IOException e) {
+                throw new RuntimeException("Error in export", e);
+            }
         }
     }
 }
