@@ -1,7 +1,7 @@
 package org.globsframework.export;
 
-import org.globsframework.export.annotation.ExportColumnSize;
 import org.globsframework.export.annotation.ExportBooleanFormat;
+import org.globsframework.export.annotation.ExportColumnSize;
 import org.globsframework.export.annotation.ExportDateFormat;
 import org.globsframework.export.annotation.ExportDoubleFormat;
 import org.globsframework.metamodel.Field;
@@ -23,7 +23,6 @@ import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 public class ExportBySize {
@@ -304,8 +303,7 @@ public class ExportBySize {
             if (booleanFormat == null) {
                 TRUE = exportBySize.trueValue != null ? exportBySize.trueValue : "1";
                 FALSE = exportBySize.falseValue != null ? exportBySize.falseValue : "0";
-            }
-            else {
+            } else {
                 // use field specific value or file default value or java default falue
                 TRUE = booleanFormat.get(ExportBooleanFormat.TRUE_, Strings.isNotEmpty(exportBySize.trueValue) ? exportBySize.trueValue : Boolean.TRUE.toString());
                 FALSE = booleanFormat.get(ExportBooleanFormat.FALSE_, Strings.isNotEmpty(exportBySize.falseValue) ? exportBySize.falseValue : Boolean.FALSE.toString());
@@ -377,10 +375,9 @@ public class ExportBySize {
             this.padding = padding;
             Glob dateFormat = field.findAnnotation(ExportDateFormat.KEY);
             if (dateFormat == null || dateFormat.get(ExportDateFormat.FORMAT) == null) {
-                if (Strings.isNotEmpty(exportBySize.defaultDateFormat)){
+                if (Strings.isNotEmpty(exportBySize.defaultDateFormat)) {
                     format = DateTimeFormatter.ofPattern(exportBySize.defaultDateFormat);
-                }
-                else {
+                } else {
                     LOGGER.warn("No date format, export to yyyy/MM/dd");
                     format = DateTimeFormatter.ofPattern("yyyy/MM/dd");
                 }
@@ -406,10 +403,9 @@ public class ExportBySize {
             this.padding = padding;
             Glob dateFormat = field.findAnnotation(ExportDateFormat.KEY);
             if (dateFormat == null || dateFormat.get(ExportDateFormat.FORMAT) == null) {
-                if (Strings.isNotEmpty(exportBySize.defaultDateFormat)){
+                if (Strings.isNotEmpty(exportBySize.defaultDateFormat)) {
                     format = DateTimeFormatter.ofPattern(exportBySize.defaultDateFormat);
-                }
-                else {
+                } else {
                     LOGGER.warn("No date format, export to yyyy/MM/dd HH/mm/SS");
                     format = DateTimeFormatter.ofPattern("yyyy/MM/dd HH/mm/SS");
                 }
@@ -424,7 +420,7 @@ public class ExportBySize {
         }
     }
 
-    static class DateAsIntFieldWrite extends HeaderFieldWrite{
+    static class DateAsIntFieldWrite extends HeaderFieldWrite {
         private IntegerField field;
         private Padding padding;
         private DateTimeFormatter format;
@@ -435,10 +431,9 @@ public class ExportBySize {
             this.padding = padding;
             Glob dateFormat = field.getAnnotation(ExportDateFormat.KEY);
             if (dateFormat == null) {
-                if (Strings.isNotEmpty(exportBySize.defaultDateFormat)){
+                if (Strings.isNotEmpty(exportBySize.defaultDateFormat)) {
                     format = DateTimeFormatter.ofPattern(exportBySize.defaultDateFormat);
-                }
-                else {
+                } else {
                     LOGGER.warn("No date format, export to yyyy/mm/dd");
                     format = DateTimeFormatter.ofPattern("yyyy/mm/dd");
                 }
@@ -454,8 +449,8 @@ public class ExportBySize {
     }
 
     private class ExportGlob {
-        private ExportBySize exportBySize;
         private final Map<GlobType, WriteObject> writeObjectMap = new HashMap<>();
+        private ExportBySize exportBySize;
         private PaddingFactory paddingFactory;
 
         public ExportGlob(ExportBySize exportBySize, PaddingFactory paddingFactory) {
@@ -463,7 +458,7 @@ public class ExportBySize {
             this.paddingFactory = paddingFactory;
         }
 
-        public void accept(Glob glob,Writer writer) {
+        public void accept(Glob glob, Writer writer) {
             GlobType type = glob.getType();
             WriteObject writeObject = writeObjectMap.computeIfAbsent(type, this::apply);
             try {
