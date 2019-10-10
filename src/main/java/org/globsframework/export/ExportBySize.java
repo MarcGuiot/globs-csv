@@ -6,15 +6,14 @@ import org.globsframework.export.annotation.ExportDateFormat;
 import org.globsframework.export.annotation.ExportDoubleFormat;
 import org.globsframework.metamodel.Field;
 import org.globsframework.metamodel.GlobType;
+import org.globsframework.metamodel.annotations.IsDate;
 import org.globsframework.metamodel.fields.*;
 import org.globsframework.model.Glob;
-import org.globsframework.sqlstreams.annotations.IsDate;
 import org.globsframework.utils.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.StringWriter;
 import java.io.Writer;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -26,8 +25,13 @@ import java.util.*;
 import java.util.stream.Stream;
 
 public class ExportBySize {
+
+    enum PaddingType {
+        left, right
+    }
+
     private static Logger LOGGER = LoggerFactory.getLogger(ExportBySize.class);
-    private boolean withPadding = false;
+    private PaddingType withPadding = null;
     private boolean withSeparator = false;
     private char separator;
     private String defaultDateFormat;
@@ -46,24 +50,30 @@ public class ExportBySize {
         return this;
     }
 
-    public ExportBySize withPadding() {
-        withPadding = true;
+    public ExportBySize withRightPadding() {
+        withPadding = PaddingType.right;
         exportGlob = null;
         return this;
     }
 
-    public void export(Stream<Glob> globStream, StringWriter writer) {
+    public ExportBySize withLeftPadding() {
+        withPadding = PaddingType.left;
+        exportGlob = null;
+        return this;
+    }
+
+    public void export(Stream<Glob> globStream, Writer writer) {
         if (exportGlob == null) {
-            exportGlob = new ExportGlob(this, withPadding ? new RealPaddingFactory() : field -> Padding.NOPADDING);
+            exportGlob = new ExportGlob(this, withPadding != null ? new RealPaddingFactory(withPadding) : field -> Padding.NOPADDING);
         }
         globStream.forEach(glob -> {
             exportGlob.accept(glob, writer);
         });
     }
 
-    public void exportHeader(GlobType headerType, StringWriter writer) {
+    public void exportHeader(GlobType headerType, Writer writer) {
         if (exportGlob == null) {
-            exportGlob = new ExportGlob(this, withPadding ? new RealPaddingFactory() : field -> Padding.NOPADDING);
+            exportGlob = new ExportGlob(this, withPadding != null ? new RealPaddingFactory(withPadding) : field -> Padding.NOPADDING);
         }
         exportGlob.exportHeader(headerType, writer);
     }
@@ -130,11 +140,13 @@ public class ExportBySize {
         protected String blank;
         private Field field;
         private int size;
+        private PaddingType paddingType;
 
-        public RealPadding(Field field, int size) {
+        public RealPadding(Field field, int size, PaddingType paddingType) {
             this.field = field;
             blank = BLANK.substring(0, size);
             this.size = size;
+            this.paddingType = paddingType;
         }
 
         public String pad(String strValue) {
@@ -144,13 +156,26 @@ public class ExportBySize {
                 if (strValue.length() > size) {
                     throw new RuntimeException("Invalid size '" + strValue + "' took more than " + size + " character for " + field.getFullName());
                 }
-                String s = blank + strValue;
-                return s.substring(s.length() - size, s.length());
+                if (paddingType == PaddingType.left) {
+                    String s = blank + strValue;
+                    return s.substring(s.length() - size, s.length());
+                } else if (paddingType == PaddingType.right) {
+                    String s = strValue + blank;
+                    return s.substring(0, size);
+                }
+                else {
+                    throw new RuntimeException("Unexpected padding " + paddingType);
+                }
             }
         }
     }
 
     static class RealPaddingFactory implements PaddingFactory {
+        private PaddingType withPadding;
+
+        public RealPaddingFactory(PaddingType withPadding) {
+            this.withPadding = withPadding;
+        }
 
         public Padding create(Field field) {
             Glob annotation = field.getAnnotation(ExportColumnSize.KEY);
@@ -159,10 +184,9 @@ public class ExportBySize {
                 return null;
             }
             Integer size = annotation.get(ExportColumnSize.SIZE);
-            return new RealPadding(field, size);
+            return new RealPadding(field, size, withPadding);
         }
     }
-
 
     static class WriteObject {
         private final ExportBySize exportBySize;
@@ -227,6 +251,7 @@ public class ExportBySize {
         }
 
         public void visitLong(LongField field) throws Exception {
+            // date or dateTime as long
             fieldWrite = new LongFieldWrite(field, padding);
         }
 
@@ -254,7 +279,6 @@ public class ExportBySize {
             writer.append(field.getName());
         }
     }
-
 
     static class StringFieldWrite extends HeaderFieldWrite {
         private final Padding padding;
@@ -287,7 +311,6 @@ public class ExportBySize {
             writer.append(padding.pad(value == null ? null : "" + value));
         }
     }
-
 
     static class BooleanFieldWrite extends HeaderFieldWrite {
         private BooleanField field;
@@ -463,6 +486,7 @@ public class ExportBySize {
             WriteObject writeObject = writeObjectMap.computeIfAbsent(type, this::apply);
             try {
                 writeObject.write(glob, writer);
+                writer.append("\n");
             } catch (IOException e) {
                 throw new RuntimeException("Error in export", e);
             }
@@ -474,10 +498,11 @@ public class ExportBySize {
                     paddingFactory);
         }
 
-        public void exportHeader(GlobType headerType, StringWriter writer) {
+        public void exportHeader(GlobType headerType, Writer writer) {
             try {
                 WriteObject writeObject = writeObjectMap.computeIfAbsent(headerType, this::apply);
                 writeObject.writeHeader(writer);
+                writer.append("\n");
             } catch (IOException e) {
                 throw new RuntimeException("Error in export", e);
             }

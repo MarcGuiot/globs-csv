@@ -4,12 +4,14 @@ import org.globsframework.export.annotation.ExportColumnSize_;
 import org.globsframework.export.annotation.ExportDateFormat_;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.GlobTypeLoaderFactory;
+import org.globsframework.metamodel.annotations.TypedIsDate;
 import org.globsframework.metamodel.fields.DateField;
 import org.globsframework.metamodel.fields.DoubleField;
 import org.globsframework.metamodel.fields.IntegerField;
 import org.globsframework.metamodel.fields.StringField;
+import org.globsframework.model.Glob;
 import org.globsframework.model.MutableGlob;
-import org.globsframework.sqlstreams.annotations.typed.TypedIsDate;
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.StringWriter;
@@ -32,24 +34,64 @@ public class ExportBySizeTest {
         {
             StringWriter writer = new StringWriter();
             ExportBySize exportBySize = new ExportBySize();
-            exportBySize.withSeparator('|').withPadding();
+            exportBySize.withSeparator('|').withLeftPadding();
             exportBySize.export(Stream.of(data), writer);
-            assertEquals(" some data|   300|  3235.14153|2018/01/02|2019/01/02", writer.getBuffer().toString());
+            assertEquals(" some data|   300|  3235.14153|2018/01/02|2019/01/02\n", writer.getBuffer().toString());
         }
         {
             StringWriter writer = new StringWriter();
             ExportBySize exportBySize = new ExportBySize();
-            exportBySize.withPadding();
+            exportBySize.withLeftPadding();
             exportBySize.export(Stream.of(data), writer);
-            assertEquals(" some data   300  3235.141532018/01/022019/01/02", writer.getBuffer().toString());
+            assertEquals(" some data   300  3235.141532018/01/022019/01/02\n", writer.getBuffer().toString());
         }
         {
             StringWriter writer = new StringWriter();
             ExportBySize exportBySize = new ExportBySize();
             exportBySize.withSeparator(';');
             exportBySize.export(Stream.of(data), writer);
-            assertEquals("some data;300;3235.14153;2018/01/02;2019/01/02", writer.getBuffer().toString());
+            assertEquals("some data;300;3235.14153;2018/01/02;2019/01/02\n", writer.getBuffer().toString());
         }
+        {
+            StringWriter writer = new StringWriter();
+            ExportBySize exportBySize = new ExportBySize();
+            exportBySize.withSeparator('|').withRightPadding();
+            exportBySize.export(Stream.of(data), writer);
+            assertEquals("some data |300   |3235.14153  |2018/01/02|2019/01/02\n", writer.getBuffer().toString());
+        }
+        {
+            StringWriter writer = new StringWriter();
+            ExportBySize exportBySize = new ExportBySize();
+            exportBySize.withRightPadding();
+            exportBySize.export(Stream.of(data), writer);
+            assertEquals("some data 300   3235.14153  2018/01/022019/01/02\n", writer.getBuffer().toString());
+        }
+    }
+
+    @Test
+    public void exportWithHeaderAndMultipleLines() {
+        Glob data1 = Data.TYPE.instantiate().set(Data.NAME, "some data")
+                .set(Data.COUNT, 300)
+                .set(Data.VALUE, 3235.14153)
+                .set(Data.DATE_AS_INT, (int) LocalDate.of(2018, 01, 02).toEpochDay())
+                .set(Data.DATE, LocalDate.of(2019, 01, 02));
+
+        Glob data2 = Data.TYPE.instantiate().set(Data.NAME, "some other data")
+                .set(Data.COUNT, 400)
+                .set(Data.VALUE, 235.14153)
+                .set(Data.DATE_AS_INT, (int) LocalDate.of(2017, 01, 02).toEpochDay())
+                .set(Data.DATE, LocalDate.of(2019, 01, 02));
+
+        ExportBySize exportBySize = new ExportBySize().withSeparator(',');
+        StringWriter writer = new StringWriter();
+        exportBySize.exportHeader(Data.TYPE, writer);
+        exportBySize.export(Stream.of(data1, data2), writer);
+        String expected = "name,count,value,dateAsInt,date\n" +
+                "some data,300,3235.14153,2018/01/02,2019/01/02\n" +
+                "some other data,400,235.14153,2017/01/02,2019/01/02\n";
+        System.out.println(expected);
+        System.out.println(writer.toString());
+        Assert.assertEquals(expected, writer.toString());
     }
 
     public static class Data {
