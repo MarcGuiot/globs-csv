@@ -54,6 +54,7 @@ public class ImportFile {
             CSVFormat csvFormat =
                     CSVFormat.DEFAULT
                             .withDelimiter(separator)
+                            .withEscape('\\')
                             .withFirstRecordAsHeader();
 
             ImportReaderBuilder readerBuilder = new ImportReaderBuilder(globType);
@@ -65,7 +66,7 @@ public class ImportFile {
                     readerBuilder.declare(field, stringIntegerEntry.getValue());
                 }
                 else {
-                    LOGGER.warn(stringIntegerEntry.getValue() + " not used got : " + Arrays.toString(globType.getFields()));
+                    LOGGER.warn(stringIntegerEntry.getKey() + " not used got : " + Arrays.toString(globType.getFields()));
                 }
             }
 

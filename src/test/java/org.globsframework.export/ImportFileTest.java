@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
+import static org.junit.Assert.fail;
+
 public class ImportFileTest {
 
 
@@ -60,7 +62,79 @@ public class ImportFileTest {
             Assert.assertEquals(4, glob.get(Type.ID).intValue());
             Assert.assertEquals("REF_4", glob.get(Type.SKU));
         }
+    }
 
+    @Test
+    public void importWithReturnInEscaptedString() throws IOException {
+        ImportFile importFile = new ImportFile();
+        importFile.withSeparator(',');
+
+        List<Glob> imports = new ArrayList<>();
+        importFile.importContent(new StringReader(
+                "PRODUCT_ID,sku\n" +
+                        "1,\"REF on \n multiples line_1\"\n" +
+                        "\"4  \",\"REF_4\"\n" +
+                        ""
+        ), new Consumer<Glob>() {
+            public void accept(Glob glob) {
+                imports.add(glob);
+            }
+        }, Type.TYPE);
+        Assert.assertEquals(2, imports.size());
+        Glob glob;
+        {
+            glob = imports.get(0);
+            Assert.assertEquals(1, glob.get(Type.ID).intValue());
+            Assert.assertEquals("REF on \n multiples line_1", glob.get(Type.SKU));
+        }
+    }
+
+    @Test
+    public void withDoubleQuoteInString() throws IOException {
+        ImportFile importFile = new ImportFile();
+        importFile.withSeparator(',');
+
+        List<Glob> imports = new ArrayList<>();
+        importFile.importContent(new StringReader(
+                "PRODUCT_ID,sku\n" +
+                        "1,\"REF on \\\"a quoted text\\\"\"\n" +
+                        "\"4  \",\"REF_4\"\n" +
+                        ""
+        ), new Consumer<Glob>() {
+            public void accept(Glob glob) {
+                imports.add(glob);
+            }
+        }, Type.TYPE);
+        Assert.assertEquals(2, imports.size());
+        Glob glob;
+        {
+            glob = imports.get(0);
+            Assert.assertEquals(1, glob.get(Type.ID).intValue());
+            Assert.assertEquals("REF on \"a quoted text\"", glob.get(Type.SKU));
+        }
+    }
+
+    @Test
+    public void checkErrorReportLineOfBadLine() throws IOException {
+        ImportFile importFile = new ImportFile();
+        importFile.withSeparator(',');
+
+        List<Glob> imports = new ArrayList<>();
+        try {
+            importFile.importContent(new StringReader(
+                    "PRODUCT_ID,sku\n" +
+                            "1,\"REF on \"a badly quoted text\"\"\n" +
+                            "\"4  \",\"REF_4\"\n" +
+                            ""
+            ), new Consumer<Glob>() {
+                public void accept(Glob glob) {
+                    imports.add(glob);
+                }
+            }, Type.TYPE);
+            fail();
+        } catch (Exception e) {
+            Assert.assertTrue(e.getCause().getMessage().contains("line 2"));
+        }
     }
 
     static public class Type {
