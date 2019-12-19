@@ -3,7 +3,6 @@ package org.globsframework.export;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.apache.commons.csv.QuoteMode;
 import org.apache.commons.io.input.BOMInputStream;
 import org.globsframework.metamodel.Field;
 import org.globsframework.metamodel.GlobType;
@@ -51,14 +50,39 @@ public class ImportFile {
 
     public void importContent(Reader reader, Consumer<Glob> consumer, GlobType globType) throws IOException {
         if (withSeparator) {
-            CSVFormat csvFormat =
-                    CSVFormat.DEFAULT
-                            .withDelimiter(separator)
-                            .withEscape('\\')
-                            .withFirstRecordAsHeader();
+            CSVParser parse = load(reader);
+            DefaultDataRead dataRead = new DefaultDataRead(parse);
 
+            dataRead.read(consumer, globType);
+
+        } else {
+            throw new RuntimeException("Not implemented");
+        }
+    }
+
+    public DataRead getDataReader(InputStream inputStream) throws IOException {
+        return new DefaultDataRead(load(new InputStreamReader(new BOMInputStream(inputStream), "UTF-8")));
+    }
+
+    public interface DataRead {
+        Map<String, Integer> getHeader();
+
+        void read(Consumer<Glob> consumer, GlobType globType);
+    }
+
+    static class DefaultDataRead implements DataRead {
+        private CSVParser parse;
+
+        public DefaultDataRead(CSVParser parse) {
+            this.parse = parse;
+        }
+
+        public Map<String, Integer> getHeader() {
+            return parse.getHeaderMap();
+        }
+
+        public void read(Consumer<Glob> consumer, GlobType globType) {
             ImportReaderBuilder readerBuilder = new ImportReaderBuilder(globType);
-            CSVParser parse = csvFormat.parse(reader);
             Map<String, Integer> headerMap = parse.getHeaderMap();
             for (Map.Entry<String, Integer> stringIntegerEntry : headerMap.entrySet()) {
                 Field field = findField(globType, stringIntegerEntry);
@@ -71,24 +95,29 @@ public class ImportFile {
             }
 
             ImportReader build = readerBuilder.build();
-
             for (CSVRecord record : parse) {
                 consumer.accept(build.read(record));
             }
-
-        } else {
-            throw new RuntimeException("Not implemented");
         }
 
+        private Field findField(GlobType globType, Map.Entry<String, Integer> stringIntegerEntry) {
+            Field field = GlobTypeUtils.findNamedField(globType, stringIntegerEntry.getKey());
+            if (field == null) {
+                LOGGER.warn("Field " + stringIntegerEntry.getKey() + " ignored.");
+            }
+            return field;
+        }
     }
 
-    private Field findField(GlobType globType, Map.Entry<String, Integer> stringIntegerEntry) {
-        Field field = GlobTypeUtils.findNamedField(globType, stringIntegerEntry.getKey());
-        if (field == null) {
-            LOGGER.warn("Field " + stringIntegerEntry.getKey() + " ignored.");
-        }
-        return field;
+    private CSVParser load(Reader reader) throws IOException {
+        CSVFormat csvFormat =
+                CSVFormat.DEFAULT
+                        .withDelimiter(separator)
+                        .withEscape('\\')
+                        .withFirstRecordAsHeader();
+        return csvFormat.parse(reader);
     }
+
 
     interface FieldReader {
         void read(MutableGlob mutableGlob, CSVRecord record);
@@ -119,7 +148,6 @@ public class ImportFile {
                 public void visitLong(LongField field) throws Exception {
                     fieldReaders.add(new LongFieldReader(field, index));
                 }
-
             });
         }
 
