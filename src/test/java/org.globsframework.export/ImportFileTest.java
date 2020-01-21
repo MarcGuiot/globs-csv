@@ -1,9 +1,9 @@
 package org.globsframework.export;
 
+import org.globsframework.export.annotation.ImportEmptyStringHasEmptyStringFormat_;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.GlobTypeLoaderFactory;
 import org.globsframework.metamodel.annotations.FieldNameAnnotation;
-import org.globsframework.metamodel.fields.DoubleField;
 import org.globsframework.metamodel.fields.IntegerField;
 import org.globsframework.metamodel.fields.StringField;
 import org.globsframework.model.Glob;
@@ -33,6 +33,8 @@ public class ImportFileTest {
                         " 2 ,\"REF_2\"\n" +
                         "\"3\",\"REF_3\"\n" +
                         "\"4  \",\"REF_4\"\n" +
+                        "\"5  \",\"\"\n" +
+                        "\"6  \",\n" +
                         ""
         ), new Consumer<Glob>() {
             public void accept(Glob glob) {
@@ -40,7 +42,7 @@ public class ImportFileTest {
             }
         }, Type.TYPE);
 
-        Assert.assertEquals(4, imports.size());
+        Assert.assertEquals(6, imports.size());
         Glob glob;
         {
             glob = imports.get(0);
@@ -61,6 +63,16 @@ public class ImportFileTest {
             glob = imports.get(3);
             Assert.assertEquals(4, glob.get(Type.ID).intValue());
             Assert.assertEquals("REF_4", glob.get(Type.SKU));
+        }
+        {
+            glob = imports.get(4);
+            Assert.assertEquals(5, glob.get(Type.ID).intValue());
+            Assert.assertEquals("", glob.get(Type.SKU));
+        }
+        {
+            glob = imports.get(5);
+            Assert.assertEquals(6, glob.get(Type.ID).intValue());
+            Assert.assertEquals("", glob.get(Type.SKU));
         }
     }
 
@@ -143,6 +155,7 @@ public class ImportFileTest {
         @FieldNameAnnotation("PRODUCT_ID")
         public static IntegerField ID;
 
+        @ImportEmptyStringHasEmptyStringFormat_(true)
         public static StringField SKU;
 
         static {

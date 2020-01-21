@@ -1,5 +1,6 @@
 package org.globsframework.export;
 
+import org.apache.commons.csv.CSVFormat;
 import org.globsframework.export.annotation.ExportBooleanFormat;
 import org.globsframework.export.annotation.ExportColumnSize;
 import org.globsframework.export.annotation.ExportDateFormat;
@@ -22,14 +23,10 @@ import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 public class ExportBySize {
-
-    enum PaddingType {
-        left, right
-    }
-
     private static Logger LOGGER = LoggerFactory.getLogger(ExportBySize.class);
     private PaddingType withPadding = null;
     private boolean withSeparator = false;
@@ -38,8 +35,8 @@ public class ExportBySize {
     private String defaultDoubleFormat;
     private String trueValue;
     private String falseValue;
+    private Character escape = '"';
     private ExportGlob exportGlob;
-
     public ExportBySize() {
     }
 
@@ -71,6 +68,13 @@ public class ExportBySize {
         });
     }
 
+    public Consumer<Glob> export(Writer writer) {
+        if (exportGlob == null) {
+            exportGlob = new ExportGlob(this, withPadding != null ? new RealPaddingFactory(withPadding) : field -> Padding.NOPADDING);
+        }
+        return glob -> exportGlob.accept(glob, writer);
+    }
+
     public void exportHeader(GlobType headerType, Writer writer) {
         if (exportGlob == null) {
             exportGlob = new ExportGlob(this, withPadding != null ? new RealPaddingFactory(withPadding) : field -> Padding.NOPADDING);
@@ -96,6 +100,10 @@ public class ExportBySize {
         this.trueValue = trueValue;
         this.falseValue = falseValue;
         exportGlob = null;
+    }
+
+    enum PaddingType {
+        left, right
     }
 
     interface FieldWrite {
@@ -162,8 +170,7 @@ public class ExportBySize {
                 } else if (paddingType == PaddingType.right) {
                     String s = strValue + blank;
                     return s.substring(0, size);
-                }
-                else {
+                } else {
                     throw new RuntimeException("Unexpected padding " + paddingType);
                 }
             }
@@ -247,7 +254,7 @@ public class ExportBySize {
         }
 
         public void visitString(StringField field) throws Exception {
-            fieldWrite = new StringFieldWrite(field, padding);
+            fieldWrite = new StringFieldWrite(field, exportBySize, padding);
         }
 
         public void visitLong(LongField field) throws Exception {
@@ -283,16 +290,28 @@ public class ExportBySize {
     static class StringFieldWrite extends HeaderFieldWrite {
         private final Padding padding;
         private final StringField field;
+        private ExportBySize exportBySize;
 
-        public StringFieldWrite(StringField field, Padding padding) {
+        public StringFieldWrite(StringField field, ExportBySize exportBySize, Padding padding) {
             super(field);
             this.field = field;
+            this.exportBySize = exportBySize;
             this.padding = padding;
         }
 
         public void write(Glob glob, Writer writer) throws IOException {
             String value = glob.get(field);
-            writer.append(padding.pad(value == null ? null : "" + value));
+            if (value == null) {
+                writer.append(padding.pad(null));
+                return;
+            }
+            if (value.indexOf(exportBySize.separator) != -1) {
+                if (value.indexOf(exportBySize.escape) != -1){
+                    value = value.replaceAll("" + exportBySize.escape, "" + exportBySize.escape + "" + exportBySize.escape);
+                }
+                value = exportBySize.escape + value + exportBySize.escape;
+            }
+            writer.append(padding.pad(value.replace("\n", "\\n")));
         }
     }
 

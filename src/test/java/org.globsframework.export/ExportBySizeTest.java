@@ -14,8 +14,12 @@ import org.globsframework.model.MutableGlob;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.IOException;
+import java.io.StringReader;
 import java.io.StringWriter;
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static org.junit.Assert.assertEquals;
@@ -92,6 +96,44 @@ public class ExportBySizeTest {
         System.out.println(expected);
         System.out.println(writer.toString());
         Assert.assertEquals(expected, writer.toString());
+    }
+
+    @Test
+    public void export () throws IOException {
+        String value1 = "some \ndata";
+        Glob data1 = Data.TYPE.instantiate().set(Data.NAME, value1);
+
+        String value2 = "some \n \"other ,data";
+        Glob data2 = Data.TYPE.instantiate().set(Data.NAME, value2);
+
+        String value3 = "some  ,data";
+        Glob data3 = Data.TYPE.instantiate().set(Data.NAME, value3);
+
+        ExportBySize exportBySize = new ExportBySize().withSeparator(',');
+        StringWriter writer = new StringWriter();
+        exportBySize.exportHeader(Data.TYPE, writer);
+        exportBySize.export(Stream.of(data1, data2, data3), writer);
+        String expected =
+                "name,count,value,dateAsInt,date\n" +
+                "some \\ndata,,,,\n" +
+                "\"some \\n \"\"other ,data\",,,,\n" +
+                "\"some  ,data\",,,,\n";
+        System.out.println(expected);
+        System.out.println(writer.toString());
+        Assert.assertEquals(expected, writer.toString());
+
+        ImportFile importFile = new ImportFile().withSeparator(',');
+
+        HashSet<String> data = new HashSet<>();
+        importFile.importContent(new StringReader(writer.toString()), new Consumer<Glob>() {
+            public void accept(Glob glob) {
+                data.add(glob.get(Data.NAME));
+            }
+        }, Data.TYPE);
+        Assert.assertEquals(3, data.size());
+        Assert.assertTrue(data.contains(value1));
+        Assert.assertTrue(data.contains(value2));
+        Assert.assertTrue(data.contains(value3));
     }
 
     public static class Data {

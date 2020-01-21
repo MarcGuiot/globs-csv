@@ -4,6 +4,8 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.input.BOMInputStream;
+import org.globsframework.export.annotation.ExportDateFormat;
+import org.globsframework.export.annotation.ImportEmptyStringHasEmptyStringFormat;
 import org.globsframework.metamodel.Field;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.fields.*;
@@ -15,6 +17,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -142,11 +146,15 @@ public class ImportFile {
                 }
 
                 public void visitString(StringField field) throws Exception {
-                    fieldReaders.add(new StringFieldReader(field, index));
+                    fieldReaders.add(new StringFieldReader(field.hasAnnotation(ImportEmptyStringHasEmptyStringFormat.KEY), field, index));
                 }
 
                 public void visitLong(LongField field) throws Exception {
                     fieldReaders.add(new LongFieldReader(field, index));
+                }
+
+                public void visitDate(DateField field) throws Exception {
+                    fieldReaders.add(new DateFieldReader(field, index));
                 }
             });
         }
@@ -210,6 +218,32 @@ public class ImportFile {
         }
     }
 
+    static class DateFieldReader implements FieldReader {
+        final DateField field;
+        final int index;
+        private DateTimeFormatter dateTimeFormatter;
+
+        DateFieldReader(DateField field, int index) {
+            this.field = field;
+            this.index = index;
+            Glob dataFormat = field.findAnnotation(ExportDateFormat.KEY);
+            if (dataFormat != null) {
+                String s = dataFormat.get(ExportDateFormat.FORMAT);
+                dateTimeFormatter = DateTimeFormatter.ofPattern(s);
+            }
+            else {
+                dateTimeFormatter = DateTimeFormatter.ISO_DATE;
+            }
+        }
+
+        public void read(MutableGlob mutableGlob, CSVRecord record) {
+            String s = getValue(record, index);
+            if (Strings.isNotEmpty(s)) {
+                mutableGlob.set(field, (LocalDate) dateTimeFormatter.parse(s.trim()));
+            }
+        }
+    }
+
     static class DoubleFieldReader implements FieldReader {
         final DoubleField field;
         final int index;
@@ -229,10 +263,12 @@ public class ImportFile {
     }
 
     static class StringFieldReader implements FieldReader {
+        final boolean emptyIsNotNull;
         final StringField field;
         final int index;
 
-        StringFieldReader(StringField field, int index) {
+        StringFieldReader(boolean emptyIsNotNull, StringField field, int index) {
+            this.emptyIsNotNull = emptyIsNotNull;
             this.field = field;
             this.index = index;
         }
@@ -240,7 +276,7 @@ public class ImportFile {
         @Override
         public void read(MutableGlob mutableGlob, CSVRecord record) {
             String s = getValue(record, index);
-            if (Strings.isNotEmpty(s)) {
+            if (emptyIsNotNull || Strings.isNotEmpty(s)) {
                 mutableGlob.set(field, s);
             }
         }
