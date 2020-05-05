@@ -10,6 +10,7 @@ import org.globsframework.model.Glob;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
@@ -147,6 +148,52 @@ public class ImportFileTest {
         } catch (Exception e) {
             Assert.assertTrue(e.getCause().getMessage().contains("line 2"));
         }
+    }
+
+    @Test
+    public void withoutType() throws IOException {
+        ImportFile importFile = new ImportFile();
+        importFile.withSeparator(',');
+
+        List<Glob> imports = new ArrayList<>();
+        ImportFile.Importer importer = importFile.create(new StringReader(
+                "PRODUCT_ID,sku\n" +
+                        "1,\"REF_1\"\n" +
+                        ""
+        ));
+
+        GlobType type = importer.getType();
+        importer.consume(new Consumer<Glob>() {
+            public void accept(Glob glob) {
+                imports.add(glob);
+            }
+        });
+
+        Assert.assertEquals(1, imports.size());
+        Glob glob;
+        {
+            glob = imports.get(0);
+            Assert.assertEquals("1", glob.get(type.getField("PRODUCT_ID").asStringField()));
+            Assert.assertEquals("REF_1", glob.get(type.getField("sku").asStringField()));
+        }
+
+    }
+
+    @Test
+    public void extractHeader() throws IOException {
+        GlobType globType = ImportFile.extractHeader(new ByteArrayInputStream("PR,TA,A".getBytes()), null);
+        Assert.assertNotNull(globType);
+
+        globType = ImportFile.extractHeader(new ByteArrayInputStream("PR,TA,A\ne,z,\"sdf,sd\"".getBytes()), null);
+        Assert.assertNotNull(globType);
+
+        globType = ImportFile.extractHeader(new ByteArrayInputStream("PR\tTA\tA".getBytes()), null);
+        Assert.assertNotNull(globType);
+
+        // fail =>
+//        globType = ImportFile.extractHeader(new ByteArrayInputStream("PR,TA,A,B\ne,z,\"sdf\n,sd\",ee".getBytes()), null);
+//        Assert.assertNotNull(globType);
+
     }
 
     static public class Type {
