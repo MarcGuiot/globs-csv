@@ -179,6 +179,9 @@ public class ImportFile {
     }
 
     private static String getValue(CSVRecord record, int index, boolean trim) {
+        if (index >= record.size()) {
+            return null;
+        }
         String s = record.get(index);
         if (s != null) {
             return s.trim();
@@ -210,6 +213,7 @@ public class ImportFile {
     static class DefaultDataRead implements DataRead {
         private CSVParser parse;
         private boolean trim;
+        private int countLine = 0;
 
         public DefaultDataRead(CSVParser parse, boolean trim) {
             this.parse = parse;
@@ -240,10 +244,19 @@ public class ImportFile {
                     LOGGER.warn(stringIntegerEntry.getKey() + " not used got : " + Arrays.toString(globType.getFields()));
                 }
             }
-
+            countLine += 2; // un pour le header et un pour la ligne a lire
             ImportReader build = readerBuilder.build();
-            for (CSVRecord record : parse) {
-                consumer.accept(build.read(record));
+            CSVRecord record = null;
+            try {
+                for (Iterator<CSVRecord> iterator = parse.iterator(); iterator.hasNext(); ) {
+                    record = iterator.next();
+                    consumer.accept(build.read(record));
+                    countLine++;
+                }
+            } catch (Exception exception) {
+                String message = "Fail to read line : " + countLine + " : " + (record != null ? record.toString() : "");
+                LOGGER.error(message, exception);
+                throw new RuntimeException(message, exception);
             }
         }
 
