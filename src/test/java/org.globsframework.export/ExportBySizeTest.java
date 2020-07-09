@@ -158,7 +158,7 @@ public class ExportBySizeTest {
         public static DateField DATE;
 
         static {
-            GlobTypeLoaderFactory.createAndLoad(Data.class);
+            GlobTypeLoaderFactory.createAndLoad(Data.class, true);
         }
     }
 }

@@ -206,7 +206,7 @@ public class ImportFileTest {
         public static StringField SKU;
 
         static {
-            GlobTypeLoaderFactory.create(Type.class).load();
+            GlobTypeLoaderFactory.create(Type.class, true).load();
         }
     }
 }
