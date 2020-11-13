@@ -28,6 +28,7 @@ import java.util.function.Consumer;
 
 public class ImportFile {
     private static Logger LOGGER = LoggerFactory.getLogger(ImportFile.class);
+    private Character quoteChar = '"';
     private boolean withSeparator;
     private char separator;
     private Charset charSet = StandardCharsets.UTF_8;
@@ -39,6 +40,11 @@ public class ImportFile {
         withSeparator = true;
         this.separator = separator;
         importers = null;
+        return this;
+    }
+
+    public ImportFile withQuoteChar(Character quoteChar){
+        this.quoteChar = quoteChar;
         return this;
     }
 
@@ -98,6 +104,7 @@ public class ImportFile {
                 CSVFormat.DEFAULT
                         .withDelimiter(separator)
                         .withEscape('\\')
+                        .withQuote(quoteChar)
                         .withFirstRecordAsHeader();
         return csvFormat.parse(reader);
     }

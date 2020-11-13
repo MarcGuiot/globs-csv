@@ -196,6 +196,27 @@ public class ImportFileTest {
 
     }
 
+    @Test
+    public void testWithQuoteChar() throws IOException {
+        ImportFile importFile = new ImportFile();
+        importFile.withSeparator(',').withQuoteChar(null);
+
+        List<Glob> imports = new ArrayList<>();
+        importFile.importContent(new StringReader(
+                "PRODUCT_ID,sku\n" +
+                        "1,\"REF_1\"\n" +
+                        ""
+        ), new Consumer<Glob>() {
+            public void accept(Glob glob) {
+                imports.add(glob);
+            }
+        }, Type.TYPE);
+
+        Assert.assertEquals(1, imports.size());
+        Assert.assertEquals("\"REF_1\"", imports.get(0).get(Type.SKU));
+
+    }
+
     static public class Type {
         public static GlobType TYPE;
 
