@@ -1,6 +1,5 @@
 package org.globsframework.export;
 
-import org.apache.commons.csv.CSVFormat;
 import org.globsframework.export.annotation.ExportBooleanFormat;
 import org.globsframework.export.annotation.ExportColumnSize;
 import org.globsframework.export.annotation.ExportDateFormat;
@@ -37,6 +36,8 @@ public class ExportBySize {
     private String falseValue;
     private Character escape = '"';
     private ExportGlob exportGlob;
+    private Set<Field> fieldsToExclude = new HashSet<>();
+
     public ExportBySize() {
     }
 
@@ -73,6 +74,11 @@ public class ExportBySize {
             exportGlob = new ExportGlob(this, withPadding != null ? new RealPaddingFactory(withPadding) : field -> Padding.NOPADDING);
         }
         return glob -> exportGlob.accept(glob, writer);
+    }
+
+    public ExportBySize excludeField(Field field) {
+        this.fieldsToExclude.add(field);
+        return this;
     }
 
     public void exportHeader(GlobType headerType, Writer writer) {
@@ -200,15 +206,17 @@ public class ExportBySize {
         private final List<FieldWrite> fieldWrites = new ArrayList<>();
         private final AddSeperator separator;
 
-        public WriteObject(ExportBySize exportBySize, GlobType type, AddSeperator separator, PaddingFactory paddingFactory) {
+        public WriteObject(ExportBySize exportBySize, GlobType type, AddSeperator separator, PaddingFactory paddingFactory, Set<Field> fieldsToExclude) {
             this.exportBySize = exportBySize;
             this.separator = separator;
             for (Field field : type.getFields()) {
-                Padding padding = paddingFactory.create(field);
-                if (padding == null) {
-                    LOGGER.warn("Field Ignored " + field.getFullName());
-                } else {
-                    fieldWrites.add(field.safeVisit(new FieldWriterVisitor(exportBySize, padding)).fieldWrite);
+                if (!fieldsToExclude.contains(field)) {
+                    Padding padding = paddingFactory.create(field);
+                    if (padding == null) {
+                        LOGGER.warn("Field Ignored " + field.getFullName());
+                    } else {
+                        fieldWrites.add(field.safeVisit(new FieldWriterVisitor(exportBySize, padding)).fieldWrite);
+                    }
                 }
             }
         }
@@ -448,8 +456,8 @@ public class ExportBySize {
                 if (Strings.isNotEmpty(exportBySize.defaultDateFormat)) {
                     format = DateTimeFormatter.ofPattern(exportBySize.defaultDateFormat);
                 } else {
-                    LOGGER.warn("No date format, export to yyyy/MM/dd HH/mm/SS");
-                    format = DateTimeFormatter.ofPattern("yyyy/MM/dd HH/mm/SS");
+                    LOGGER.warn("No date format, export to yyyy/MM/dd HH:mm:ss");
+                    format = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
                 }
             } else {
                 format = DateTimeFormatter.ofPattern(dateFormat.get(ExportDateFormat.FORMAT));
@@ -514,7 +522,7 @@ public class ExportBySize {
         private WriteObject apply(GlobType globType) {
             return new WriteObject(exportBySize, globType,
                     withSeparator ? new RealAddSeparator(separator) : AddSeperator.NULL,
-                    paddingFactory);
+                    paddingFactory, fieldsToExclude);
         }
 
         public void exportHeader(GlobType headerType, Writer writer) {

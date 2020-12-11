@@ -1,9 +1,12 @@
 package org.globsframework.export;
 
+import org.globsframework.export.annotation.ExportDateFormat_;
 import org.globsframework.export.annotation.ImportEmptyStringHasEmptyStringFormat_;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.GlobTypeLoaderFactory;
 import org.globsframework.metamodel.annotations.FieldNameAnnotation;
+import org.globsframework.metamodel.fields.DateField;
+import org.globsframework.metamodel.fields.DateTimeField;
 import org.globsframework.metamodel.fields.IntegerField;
 import org.globsframework.metamodel.fields.StringField;
 import org.globsframework.model.Glob;
@@ -13,6 +16,8 @@ import org.junit.Test;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringReader;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -217,6 +222,48 @@ public class ImportFileTest {
 
     }
 
+    @Test
+    public void testWithoutHeader() throws IOException {
+        ImportFile importFile = new ImportFile();
+        importFile.withSeparator(',').withQuoteChar(null);
+
+        List<Glob> imports = new ArrayList<>();
+        importFile.withHeader("PRODUCT_ID,sku");
+        importFile.importContent(new StringReader(
+                "1,\"REF_1\"\n" +
+                        ""
+        ), new Consumer<Glob>() {
+            public void accept(Glob glob) {
+                imports.add(glob);
+            }
+        }, Type.TYPE);
+
+        Assert.assertEquals(1, imports.size());
+        Assert.assertEquals("\"REF_1\"", imports.get(0).get(Type.SKU));
+    }
+
+    @Test
+    public void testDateTimeAndPartialDateTime() throws IOException {
+        ImportFile importFile = new ImportFile();
+        importFile.withSeparator(',');
+
+        List<Glob> imports = new ArrayList<>();
+            importFile.importContent(new StringReader(
+                    "PRODUCT_ID,date,dateTime,dateTimeWithoutTime\n" +
+                            "1,20201130,20201130 223200,20201130\n"
+            ), new Consumer<Glob>() {
+                public void accept(Glob glob) {
+                    imports.add(glob);
+                }
+            }, Type.TYPE);
+
+        Assert.assertEquals(1, imports.size());
+        Assert.assertEquals("2020-11-29", imports.get(0).get(Type.dateTimeWithoutTime).format(DateTimeFormatter.ISO_LOCAL_DATE
+                .withZone(ZoneId.of("America/Los_Angeles"))));
+        Assert.assertEquals("2020-11-30", imports.get(0).get(Type.dateTimeWithoutTime).format(DateTimeFormatter.ISO_LOCAL_DATE
+                .withZone(ZoneId.of("Europe/Paris"))));
+    }
+
     static public class Type {
         public static GlobType TYPE;
 
@@ -225,6 +272,15 @@ public class ImportFileTest {
 
         @ImportEmptyStringHasEmptyStringFormat_(true)
         public static StringField SKU;
+
+        @ExportDateFormat_("yyyyMMdd")
+        public static DateField date;
+
+        @ExportDateFormat_("yyyyMMdd HHmmss")
+        public static DateTimeField dateTime;
+
+        @ExportDateFormat_(value = "yyyyMMdd", zoneId = "Europe/Paris")
+        public static DateTimeField dateTimeWithoutTime;
 
         static {
             GlobTypeLoaderFactory.create(Type.class, true).load();

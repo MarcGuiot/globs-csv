@@ -136,6 +136,32 @@ public class ExportBySizeTest {
         Assert.assertTrue(data.contains(value3));
     }
 
+    @Test
+    public void testWithExcludedField() {
+        String value1 = "some \ndata";
+        Glob data1 = Data.TYPE.instantiate().set(Data.NAME, value1).set(Data.VALUE, 3);
+
+        String value2 = "some \n \"other ,data";
+        Glob data2 = Data.TYPE.instantiate().set(Data.NAME, value2).set(Data.VALUE, 2);
+
+        String value3 = "some  ,data";
+        Glob data3 = Data.TYPE.instantiate().set(Data.NAME, value3).set(Data.VALUE, 1);
+
+        ExportBySize exportBySize = new ExportBySize().withSeparator(',')
+                .excludeField(Data.VALUE);
+        StringWriter writer = new StringWriter();
+        exportBySize.exportHeader(Data.TYPE, writer);
+        exportBySize.export(Stream.of(data1, data2, data3), writer);
+        String expected =
+                "name,count,dateAsInt,date\n" +
+                        "some \\ndata,,,\n" +
+                        "\"some \\n \"\"other ,data\",,,\n" +
+                        "\"some  ,data\",,,\n";
+        System.out.println(expected);
+        System.out.println(writer.toString());
+            Assert.assertEquals(expected, writer.toString());
+    }
+
     public static class Data {
         public static GlobType TYPE;
 

@@ -21,8 +21,9 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAccessor;
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -35,6 +36,7 @@ public class ImportFile {
     private Map<GlobType, ImportReader> importers = new HashMap<>();
     private ExportBySize.PaddingType paddingType;
     private boolean trim;
+    private String header;
 
     public ImportFile withSeparator(char separator) {
         withSeparator = true;
@@ -70,6 +72,11 @@ public class ImportFile {
         return this;
     }
 
+    public ImportFile withHeader(String headers) {
+        this.header = headers;
+        return this;
+    }
+
     public Importer create(Reader reader) throws IOException {
         return create(reader, null);
     }
@@ -88,7 +95,9 @@ public class ImportFile {
     }
 
     public void importContent(InputStream inputStream, Consumer<Glob> consumer, GlobType globType) throws IOException {
-        importContent(new InputStreamReader(new BOMInputStream(inputStream), charSet), consumer, globType);
+        BOMInputStream in = new BOMInputStream(inputStream);
+        String bomCharsetName = in.getBOMCharsetName();
+        importContent(new InputStreamReader(in, bomCharsetName != null ? Charset.forName(bomCharsetName) : charSet), consumer, globType);
     }
 
     public void importContent(Reader reader, Consumer<Glob> consumer, GlobType globType) throws IOException {
@@ -104,14 +113,35 @@ public class ImportFile {
                 CSVFormat.DEFAULT
                         .withDelimiter(separator)
                         .withEscape('\\')
-                        .withQuote(quoteChar)
-                        .withFirstRecordAsHeader();
+                        .withQuote(quoteChar);
+        if (header != null) {
+            List<String> elements = new ArrayList<>();
+            StringBuilder current = new StringBuilder();
+            for (char c : header.toCharArray()) {
+                if (c == separator) {
+                    elements.add(current.toString());
+                    current = new StringBuilder();
+                }
+                else {
+                    current.append(c);
+                }
+            }
+            elements.add(current.toString());
+            csvFormat = csvFormat.withHeader(elements.toArray(new String[0]));
+        }
+        else {
+            csvFormat = csvFormat.withFirstRecordAsHeader();
+        }
         return csvFormat.parse(reader);
     }
 
     static public GlobType extractHeader(InputStream inputStream, Character separator) throws IOException {
+        return extractHeader(inputStream, separator, StandardCharsets.UTF_8);
+    }
+
+    static public GlobType extractHeader(InputStream inputStream, Character separator, Charset charset) throws IOException {
         GlobTypeBuilder globTypeBuilder = new DefaultGlobTypeBuilder("DEFAULT");
-        BufferedReader reader = new BufferedReader(new InputStreamReader(new BOMInputStream(inputStream), StandardCharsets.UTF_8));
+        BufferedReader reader = new BufferedReader(new InputStreamReader(new BOMInputStream(inputStream), charset));
         String s = reader.readLine();
         if (s == null) {
             LOGGER.warn("Empty file");
@@ -307,6 +337,9 @@ public class ImportFile {
                 public void visitDate(DateField field) throws Exception {
                     fieldReaders.add(new DateFieldReader(field, index, trim));
                 }
+                public void visitDateTime(DateTimeField field) throws Exception {
+                    fieldReaders.add(new DateTimeFieldReader(field, index, trim));
+                }
             });
         }
 
@@ -395,7 +428,44 @@ public class ImportFile {
         public void read(MutableGlob mutableGlob, CSVRecord record) {
             String s = getValue(record, index, trim);
             if (Strings.isNotEmpty(s)) {
-                mutableGlob.set(field, (LocalDate) dateTimeFormatter.parse(s.trim()));
+                mutableGlob.set(field, LocalDate.from(dateTimeFormatter.parse(s.trim())));
+            }
+        }
+    }
+
+    static class DateTimeFieldReader implements FieldReader {
+        final DateTimeField field;
+        final int index;
+        private boolean trim;
+        private DateTimeFormatter dateTimeFormatter;
+        private final ZoneId zoneId;
+
+        DateTimeFieldReader(DateTimeField field, int index, boolean trim) {
+            this.field = field;
+            this.index = index;
+            this.trim = trim;
+            Glob dataFormat = field.findAnnotation(ExportDateFormat.KEY);
+            if (dataFormat != null) {
+                String s = dataFormat.get(ExportDateFormat.FORMAT);
+                zoneId = ZoneId.of(dataFormat.get(ExportDateFormat.ZONE_ID, ZoneId.systemDefault().getId()));
+                dateTimeFormatter = DateTimeFormatter.ofPattern(s).withZone(zoneId);
+            } else {
+                zoneId = ZoneId.systemDefault();
+                dateTimeFormatter = DateTimeFormatter.ISO_DATE.withZone(zoneId);
+            }
+        }
+
+        public void read(MutableGlob mutableGlob, CSVRecord record) {
+            String s = getValue(record, index, trim);
+            if (Strings.isNotEmpty(s)) {
+                TemporalAccessor temporalAccessor = dateTimeFormatter.parseBest(s.trim(), ZonedDateTime::from, LocalDateTime::from, LocalDate::from);
+                if (temporalAccessor instanceof ZonedDateTime) {
+                    mutableGlob.set(field, (ZonedDateTime) temporalAccessor);
+                } else if (temporalAccessor instanceof LocalDateTime){
+                    mutableGlob.set(field, ((LocalDateTime) temporalAccessor).atZone(zoneId));
+                } else if (temporalAccessor instanceof LocalDate) {
+                    mutableGlob.set(field, ZonedDateTime.of((LocalDate) temporalAccessor, LocalTime.MIDNIGHT, zoneId));
+                }
             }
         }
     }
