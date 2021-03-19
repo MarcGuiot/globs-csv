@@ -3,6 +3,7 @@ package org.globsframework.export;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.io.ByteOrderMark;
 import org.apache.commons.io.input.BOMInputStream;
 import org.globsframework.export.annotation.ExportDateFormat;
 import org.globsframework.export.annotation.ImportEmptyStringHasEmptyStringFormat;
@@ -95,7 +96,8 @@ public class ImportFile {
     }
 
     public void importContent(InputStream inputStream, Consumer<Glob> consumer, GlobType globType) throws IOException {
-        BOMInputStream in = new BOMInputStream(inputStream);
+        BOMInputStream in = new BOMInputStream(inputStream, ByteOrderMark.UTF_8, ByteOrderMark.UTF_16LE, ByteOrderMark.UTF_16BE,
+                ByteOrderMark.UTF_32LE, ByteOrderMark.UTF_32BE);
         String bomCharsetName = in.getBOMCharsetName();
         importContent(new InputStreamReader(in, bomCharsetName != null ? Charset.forName(bomCharsetName) : charSet), consumer, globType);
     }
