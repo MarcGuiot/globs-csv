@@ -78,8 +78,15 @@ public class ImportFile {
         return this;
     }
 
+    public Importer create(InputStream inputStream) throws IOException {
+        return create(createReaderFromStream(inputStream), null);
+    }
+
     public Importer create(Reader reader) throws IOException {
         return create(reader, null);
+    }
+    public Importer create(InputStream inputStream, GlobType globType) throws IOException {
+        return create(createReaderFromStream(inputStream), globType);
     }
 
     public Importer create(Reader reader, GlobType globType) throws IOException {
@@ -96,10 +103,16 @@ public class ImportFile {
     }
 
     public void importContent(InputStream inputStream, Consumer<Glob> consumer, GlobType globType) throws IOException {
+        InputStreamReader reader = createReaderFromStream(inputStream);
+        importContent(reader, consumer, globType);
+    }
+
+    private InputStreamReader createReaderFromStream(InputStream inputStream) throws IOException {
         BOMInputStream in = new BOMInputStream(inputStream, ByteOrderMark.UTF_8, ByteOrderMark.UTF_16LE, ByteOrderMark.UTF_16BE,
                 ByteOrderMark.UTF_32LE, ByteOrderMark.UTF_32BE);
         String bomCharsetName = in.getBOMCharsetName();
-        importContent(new InputStreamReader(in, bomCharsetName != null ? Charset.forName(bomCharsetName) : charSet), consumer, globType);
+        InputStreamReader reader = new InputStreamReader(in, bomCharsetName != null ? Charset.forName(bomCharsetName) : charSet);
+        return reader;
     }
 
     public void importContent(Reader reader, Consumer<Glob> consumer, GlobType globType) throws IOException {
@@ -107,7 +120,7 @@ public class ImportFile {
     }
 
     public DataRead getDataReader(InputStream inputStream) throws IOException {
-        return new DefaultDataRead(load(new InputStreamReader(new BOMInputStream(inputStream), "UTF-8")), trim);
+        return new DefaultDataRead(load(createReaderFromStream(inputStream)), trim);
     }
 
     private CSVParser load(Reader reader) throws IOException {
