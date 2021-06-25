@@ -61,6 +61,11 @@ public class ImportFile {
         return this;
     }
 
+    public ImportFile withCharSet(Charset charSet) {
+        this.charSet = charSet;
+        return this;
+    }
+
     public ImportFile withRightPadding() {
         paddingType = ExportBySize.PaddingType.right;
         importers = null;
@@ -108,10 +113,14 @@ public class ImportFile {
     }
 
     private InputStreamReader createReaderFromStream(InputStream inputStream) throws IOException {
+        return createReaderWithBomCheck(inputStream, charSet);
+    }
+
+    public static InputStreamReader createReaderWithBomCheck(InputStream inputStream, Charset defaultCharset) throws IOException {
         BOMInputStream in = new BOMInputStream(inputStream, ByteOrderMark.UTF_8, ByteOrderMark.UTF_16LE, ByteOrderMark.UTF_16BE,
                 ByteOrderMark.UTF_32LE, ByteOrderMark.UTF_32BE);
         String bomCharsetName = in.getBOMCharsetName();
-        InputStreamReader reader = new InputStreamReader(in, bomCharsetName != null ? Charset.forName(bomCharsetName) : charSet);
+        InputStreamReader reader = new InputStreamReader(in, bomCharsetName != null ? Charset.forName(bomCharsetName) : defaultCharset);
         return reader;
     }
 
@@ -156,7 +165,7 @@ public class ImportFile {
 
     static public GlobType extractHeader(InputStream inputStream, Character separator, Charset charset) throws IOException {
         GlobTypeBuilder globTypeBuilder = new DefaultGlobTypeBuilder("DEFAULT");
-        BufferedReader reader = new BufferedReader(new InputStreamReader(new BOMInputStream(inputStream), charset));
+        BufferedReader reader = new BufferedReader(ImportFile.createReaderWithBomCheck(inputStream, charset)); //new BufferedReader(new InputStreamReader(new BOMInputStream(inputStream), charset));
         String s = reader.readLine();
         if (s == null) {
             LOGGER.warn("Empty file");
