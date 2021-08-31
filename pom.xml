@@ -9,6 +9,34 @@
     <name>import/export</name>
     <version>3.1</version>
 
+    <repositories>
+        <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/mathieu-chauvet/*</url>
+        </repository>
+        <repository>
+            <id>github-marc</id>
+            <url>https://maven.pkg.github.com/MarcGuiot/*</url>
+        </repository>
+        <repository>
+            <id>central</id>
+            <url>https://repo1.maven.org/maven2</url>
+        </repository>
+    </repositories>
+
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/${env.GITHUB_REPOSITORY}</url>
+        </repository>
+        <snapshotRepository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/${env.GITHUB_REPOSITORY}</url>
+        </snapshotRepository>
+    </distributionManagement>
+
     <build>
         <plugins>
             <plugin>
@@ -82,8 +110,5 @@
             <version>2.12.1</version>
             <scope>test</scope>
         </dependency>
-
     </dependencies>
-
-
 </project>
