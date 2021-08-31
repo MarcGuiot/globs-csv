@@ -28,12 +28,12 @@
         <repository>
             <id>github</id>
             <name>GitHub Packages</name>
-            <url>https://maven.pkg.github.com/The-Other-Store/globs-csvExport</url>
+            <url>https://maven.pkg.github.com/${env.GITHUB_REPOSITORY}</url>
         </repository>
         <snapshotRepository>
             <id>github</id>
             <name>GitHub Packages</name>
-            <url>https://maven.pkg.github.com/The-Other-Store/globs-csvExport</url>
+            <url>https://maven.pkg.github.com/${env.GITHUB_REPOSITORY}</url>
         </snapshotRepository>
     </distributionManagement>
 
