@@ -9,6 +9,34 @@
     <name>import/export</name>
     <version>1.0</version>
 
+    <repositories>
+        <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/mathieu-chauvet/*</url>
+        </repository>
+        <repository>
+            <id>github-marc</id>
+            <url>https://maven.pkg.github.com/MarcGuiot/*</url>
+        </repository>
+        <repository>
+            <id>central</id>
+            <url>https://repo1.maven.org/maven2</url>
+        </repository>
+    </repositories>
+
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/The-Other-Store/globs-csvExport</url>
+        </repository>
+        <snapshotRepository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/The-Other-Store/globs-csvExport</url>
+        </snapshotRepository>
+    </distributionManagement>
+
     <build>
         <plugins>
             <plugin>
@@ -84,6 +112,5 @@
         </dependency>
 
     </dependencies>
-
 
 </project>
