@@ -7,7 +7,7 @@
     <packaging>jar</packaging>
     <artifactId>export</artifactId>
     <name>import/export</name>
-    <version>1.0</version>
+    <version>3.0</version>
 
     <build>
         <plugins>
