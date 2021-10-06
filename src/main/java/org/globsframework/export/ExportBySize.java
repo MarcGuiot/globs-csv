@@ -61,6 +61,10 @@ public class ExportBySize {
     }
 
     public void export(Stream<Glob> globStream, Writer writer) {
+        export(globStream, new LineWriterToWriter(writer));
+    }
+
+    public void export(Stream<Glob> globStream, LineWriter writer) {
         if (exportGlob == null) {
             exportGlob = new ExportGlob(this, withPadding != null ? new RealPaddingFactory(withPadding) : field -> Padding.NOPADDING);
         }
@@ -70,6 +74,10 @@ public class ExportBySize {
     }
 
     public Consumer<Glob> export(Writer writer) {
+        return export(new LineWriterToWriter(writer));
+    }
+
+    public Consumer<Glob> export(LineWriter writer) {
         if (exportGlob == null) {
             exportGlob = new ExportGlob(this, withPadding != null ? new RealPaddingFactory(withPadding) : field -> Padding.NOPADDING);
         }
@@ -82,6 +90,10 @@ public class ExportBySize {
     }
 
     public void exportHeader(GlobType headerType, Writer writer) {
+        exportHeader(headerType, new LineWriterToWriter(writer));
+    }
+
+    public void exportHeader(GlobType headerType, LineWriter writer) {
         if (exportGlob == null) {
             exportGlob = new ExportGlob(this, withPadding != null ? new RealPaddingFactory(withPadding) : field -> Padding.NOPADDING);
         }
@@ -113,16 +125,16 @@ public class ExportBySize {
     }
 
     interface FieldWrite {
-        void write(Glob glob, Writer writer) throws IOException;
+        void write(Glob glob, LineWriter writer);
 
-        void writeHeader(Writer writer) throws IOException;
+        void writeHeader(LineWriter writer);
     }
 
     interface AddSeperator {
-        AddSeperator NULL = (writer, isLast) -> {
+        AddSeperator NULL = (lineWriter, isLast) -> {
         };
 
-        void seperate(Writer writer, boolean isLast) throws IOException;
+        void seperate(LineWriter writer, boolean isLast);
     }
 
     interface Padding {
@@ -135,6 +147,14 @@ public class ExportBySize {
         Padding create(Field field);
     }
 
+    public interface LineWriter {
+        void append(String str);
+
+        void append(char str);
+
+        void newLine();
+    }
+
     static class RealAddSeparator implements AddSeperator {
         final char sep;
 
@@ -142,7 +162,7 @@ public class ExportBySize {
             this.sep = sep;
         }
 
-        public void seperate(Writer writer, boolean isLast) throws IOException {
+        public void seperate(LineWriter writer, boolean isLast) {
             if (!isLast) {
                 writer.append(sep);
             }
@@ -221,7 +241,7 @@ public class ExportBySize {
             }
         }
 
-        public void writeHeader(Writer writer) throws IOException {
+        public void writeHeader(LineWriter writer) {
             for (Iterator<FieldWrite> iterator = fieldWrites.iterator(); iterator.hasNext(); ) {
                 FieldWrite fieldWrite = iterator.next();
                 fieldWrite.writeHeader(writer);
@@ -229,7 +249,7 @@ public class ExportBySize {
             }
         }
 
-        public void write(Glob glob, Writer writer) throws IOException {
+        public void write(Glob glob, LineWriter writer) throws IOException {
             for (Iterator<FieldWrite> iterator = fieldWrites.iterator(); iterator.hasNext(); ) {
                 FieldWrite fieldWrite = iterator.next();
                 fieldWrite.write(glob, writer);
@@ -237,7 +257,6 @@ public class ExportBySize {
             }
         }
     }
-
 
     private static class FieldWriterVisitor extends FieldVisitor.AbstractWithErrorVisitor {
         FieldWrite fieldWrite;
@@ -290,7 +309,7 @@ public class ExportBySize {
             this.field = field;
         }
 
-        public void writeHeader(Writer writer) throws IOException {
+        public void writeHeader(LineWriter writer) {
             writer.append(field.getName());
         }
     }
@@ -307,14 +326,14 @@ public class ExportBySize {
             this.padding = padding;
         }
 
-        public void write(Glob glob, Writer writer) throws IOException {
+        public void write(Glob glob, LineWriter writer) {
             String value = glob.get(field);
             if (value == null) {
                 writer.append(padding.pad(null));
                 return;
             }
             if (value.indexOf(exportBySize.separator) != -1) {
-                if (value.indexOf(exportBySize.escape) != -1){
+                if (value.indexOf(exportBySize.escape) != -1) {
                     value = value.replaceAll("" + exportBySize.escape, "" + exportBySize.escape + "" + exportBySize.escape);
                 }
                 value = exportBySize.escape + value + exportBySize.escape;
@@ -333,7 +352,7 @@ public class ExportBySize {
             this.padding = padding;
         }
 
-        public void write(Glob glob, Writer writer) throws IOException {
+        public void write(Glob glob, LineWriter writer) {
             Integer value = glob.get(field);
             writer.append(padding.pad(value == null ? null : "" + value));
         }
@@ -360,7 +379,7 @@ public class ExportBySize {
             }
         }
 
-        public void write(Glob glob, Writer writer) throws IOException {
+        public void write(Glob glob, LineWriter writer) {
             Boolean value = glob.get(field);
             writer.append(padding.pad(value == null ? null : value ? TRUE : FALSE));
         }
@@ -377,7 +396,7 @@ public class ExportBySize {
             this.padding = padding;
         }
 
-        public void write(Glob glob, Writer writer) throws IOException {
+        public void write(Glob glob, LineWriter writer) {
             Long value = glob.get(field);
             String strValue = "" + value;
             writer.append(padding.pad(value == null ? null : "" + strValue));
@@ -408,7 +427,7 @@ public class ExportBySize {
             }
         }
 
-        public void write(Glob glob, Writer writer) throws IOException {
+        public void write(Glob glob, LineWriter writer) {
             Double value = glob.get(field);
             writer.append(padding.pad(value == null ? null : format.format(value)));
         }
@@ -436,7 +455,7 @@ public class ExportBySize {
             }
         }
 
-        public void write(Glob glob, Writer writer) throws IOException {
+        public void write(Glob glob, LineWriter writer) {
             LocalDate value = glob.get(field);
             writer.append(padding.pad(value == null ? null : format.format(value)));
         }
@@ -464,7 +483,7 @@ public class ExportBySize {
             }
         }
 
-        public void write(Glob glob, Writer writer) throws IOException {
+        public void write(Glob glob, LineWriter writer) {
             ZonedDateTime value = glob.get(field);
             writer.append(padding.pad(value == null ? null : format.format(value)));
         }
@@ -492,9 +511,41 @@ public class ExportBySize {
             }
         }
 
-        public void write(Glob glob, Writer writer) throws IOException {
+        public void write(Glob glob, LineWriter writer) {
             Integer value = glob.get(field);
             writer.append(padding.pad(value == null ? null : format.format(LocalDate.ofEpochDay(value))));
+        }
+    }
+
+    public static class LineWriterToWriter implements LineWriter {
+        private final Writer writer;
+
+        public LineWriterToWriter(Writer writer) {
+            this.writer = writer;
+        }
+
+        public void append(String str) {
+            try {
+                writer.append(str);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        public void append(char ch) {
+            try {
+                writer.append(ch);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        public void newLine() {
+            try {
+                writer.append("\n");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -508,12 +559,12 @@ public class ExportBySize {
             this.paddingFactory = paddingFactory;
         }
 
-        public void accept(Glob glob, Writer writer) {
+        public void accept(Glob glob, LineWriter writer) {
             GlobType type = glob.getType();
             WriteObject writeObject = writeObjectMap.computeIfAbsent(type, this::apply);
             try {
                 writeObject.write(glob, writer);
-                writer.append("\n");
+                writer.newLine();
             } catch (IOException e) {
                 throw new RuntimeException("Error in export", e);
             }
@@ -525,15 +576,18 @@ public class ExportBySize {
                     paddingFactory, fieldsToExclude);
         }
 
+
         public void exportHeader(GlobType headerType, Writer writer) {
-            try {
-                WriteObject writeObject = writeObjectMap.computeIfAbsent(headerType, this::apply);
-                writeObject.writeHeader(writer);
-                writer.append("\n");
-            } catch (IOException e) {
-                throw new RuntimeException("Error in export", e);
-            }
+            exportHeader(headerType, new LineWriterToWriter(writer));
         }
+
+        public void exportHeader(GlobType headerType, LineWriter writer) {
+            WriteObject writeObject = writeObjectMap.computeIfAbsent(headerType, this::apply);
+            writeObject.writeHeader(writer);
+            writer.newLine();
+        }
+
     }
+
 }
 
