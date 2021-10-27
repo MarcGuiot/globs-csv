@@ -5,10 +5,7 @@ import org.globsframework.export.annotation.ExportDateFormat_;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.GlobTypeLoaderFactory;
 import org.globsframework.metamodel.annotations.TypedIsDate;
-import org.globsframework.metamodel.fields.DateField;
-import org.globsframework.metamodel.fields.DoubleField;
-import org.globsframework.metamodel.fields.IntegerField;
-import org.globsframework.metamodel.fields.StringField;
+import org.globsframework.metamodel.fields.*;
 import org.globsframework.model.Glob;
 import org.globsframework.model.MutableGlob;
 import org.junit.Assert;
@@ -162,6 +159,33 @@ public class ExportBySizeTest {
             Assert.assertEquals(expected, writer.toString());
     }
 
+
+    public static class DataWithArray {
+        public static GlobType TYPE;
+
+        public static StringArrayField names;
+
+        static {
+            GlobTypeLoaderFactory.create(DataWithArray.class).load();
+        }
+    }
+    @Test
+    public void withStringArray() {
+
+        Glob data1 = DataWithArray.TYPE.instantiate()
+                .set(DataWithArray.names, new String[]{"A", "B", "C"});
+
+        ExportBySize exportBySize = new ExportBySize().withSeparator(';')
+                .withArraySeparator(',');
+        StringWriter writer = new StringWriter();
+        exportBySize.exportHeader(DataWithArray.TYPE, writer);
+        exportBySize.export(Stream.of(data1), writer);
+        String expected =
+                "names\n" +
+                        "A,B,C\n";
+        Assert.assertEquals(expected, writer.toString());
+    }
+
     public static class Data {
         public static GlobType TYPE;
 
@@ -182,6 +206,7 @@ public class ExportBySizeTest {
         @ExportDateFormat_("YYYY/MM/DD")
         @ExportColumnSize_(10)
         public static DateField DATE;
+
 
         static {
             GlobTypeLoaderFactory.createAndLoad(Data.class, true);

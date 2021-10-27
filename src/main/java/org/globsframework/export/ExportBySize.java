@@ -30,6 +30,7 @@ public class ExportBySize {
     private PaddingType withPadding = null;
     private boolean withSeparator = false;
     private char separator;
+    private char arraySeparator = ',';
     private String defaultDateFormat;
     private String defaultDoubleFormat;
     private String trueValue;
@@ -39,6 +40,11 @@ public class ExportBySize {
     private Set<Field> fieldsToExclude = new HashSet<>();
 
     public ExportBySize() {
+    }
+
+    public ExportBySize withArraySeparator(char arraySeparator) {
+        this.arraySeparator = arraySeparator;
+        return this;
     }
 
     public ExportBySize withSeparator(char separator) {
@@ -300,6 +306,10 @@ public class ExportBySize {
         public void visitDateTime(DateTimeField field) throws Exception {
             fieldWrite = new DatetimeFieldWrite(exportBySize, field, padding);
         }
+
+        public void visitStringArray(StringArrayField field) throws Exception {
+            fieldWrite = new StringArrayFieldWrite(field, exportBySize, padding);
+        }
     }
 
     static abstract class HeaderFieldWrite implements FieldWrite {
@@ -339,6 +349,44 @@ public class ExportBySize {
                 value = exportBySize.escape + value + exportBySize.escape;
             }
             writer.append(padding.pad(value.replace("\n", "\\n")));
+        }
+    }
+
+    static class StringArrayFieldWrite extends HeaderFieldWrite {
+        private final Padding padding;
+        private final StringArrayField field;
+        private ExportBySize exportBySize;
+
+        public StringArrayFieldWrite(StringArrayField field, ExportBySize exportBySize, Padding padding) {
+            super(field);
+            this.field = field;
+            this.exportBySize = exportBySize;
+            this.padding = padding;
+        }
+
+        public void write(Glob glob, LineWriter writer) {
+            String[] value = glob.get(field);
+            if (value == null || value.length == 0) {
+                writer.append(padding.pad(null));
+                return;
+            }
+            StringBuilder stringBuilder = new StringBuilder();
+            for (String s : value) {
+                if (s.indexOf(exportBySize.separator) != -1) {
+                    if (s.indexOf(exportBySize.escape) != -1) {
+                        s = s.replaceAll("" + exportBySize.escape, "" + exportBySize.escape + "" + exportBySize.escape);
+                    }
+                    s = exportBySize.escape + s + exportBySize.escape;
+                }
+                stringBuilder.append(s)
+                        .append(exportBySize.arraySeparator);
+            }
+            if (stringBuilder.length() != 0) {
+                // remove last arraySeparator.
+                stringBuilder.delete(stringBuilder.length() - 1, stringBuilder.length());
+            }
+            String outputValue = stringBuilder.toString();
+            writer.append(padding.pad(outputValue.replace("\n", "\\n")));
         }
     }
 
