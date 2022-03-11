@@ -28,6 +28,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAccessor;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 public class ImportFile {
     private static Logger LOGGER = LoggerFactory.getLogger(ImportFile.class);
@@ -422,19 +423,22 @@ public class ImportFile {
     static class IntegerFieldReader implements FieldReader {
         final IntegerField field;
         final int index;
+        private final Pattern removeZero;
         private boolean trim;
 
         IntegerFieldReader(IntegerField field, int index, boolean trim) {
             this.field = field;
             this.index = index;
             this.trim = trim;
+            removeZero = Pattern.compile("\\.0*$");
         }
 
         @Override
         public void read(MutableGlob mutableGlob, CSVRecord record) {
             String s = getValue(record, index, trim);
             if (Strings.isNotEmpty(s)) {
-                mutableGlob.set(field, Integer.parseInt(s.trim()));
+                s = removeZero.matcher(s.trim()).replaceAll("");
+                mutableGlob.set(field, Integer.parseInt(s));
             }
         }
     }
@@ -442,19 +446,22 @@ public class ImportFile {
     static class LongFieldReader implements FieldReader {
         final LongField field;
         final int index;
+        private final Pattern removeZero;
         private boolean trim;
 
         LongFieldReader(LongField field, int index, boolean trim) {
             this.field = field;
             this.index = index;
             this.trim = trim;
+            removeZero = Pattern.compile("\\.0*$");
         }
 
         @Override
         public void read(MutableGlob mutableGlob, CSVRecord record) {
             String s = getValue(record, index, trim);
             if (Strings.isNotEmpty(s)) {
-                mutableGlob.set(field, Long.parseLong(s.trim()));
+                s = removeZero.matcher(s.trim()).replaceAll("");
+                mutableGlob.set(field, Long.parseLong(s));
             }
         }
     }
