@@ -40,112 +40,8 @@ public class ImportFile {
     private ExportBySize.PaddingType paddingType;
     private boolean trim;
     private String header;
-
-    public ImportFile withSeparator(char separator) {
-        withSeparator = true;
-        this.separator = separator;
-        importers = null;
-        return this;
-    }
-
-    public ImportFile withQuoteChar(Character quoteChar){
-        this.quoteChar = quoteChar;
-        return this;
-    }
-
-    public ImportFile trim() {
-        trim = true;
-        return this;
-    }
-
-    public ImportFile withCharSet(String charSet) {
-        this.charSet = Charset.forName(charSet);
-        return this;
-    }
-
-    public ImportFile withCharSet(Charset charSet) {
-        this.charSet = charSet;
-        return this;
-    }
-
-    public ImportFile withRightPadding() {
-        paddingType = ExportBySize.PaddingType.right;
-        importers = null;
-        return this;
-    }
-
-    public ImportFile withLeftPadding() {
-        paddingType = ExportBySize.PaddingType.left;
-        importers = null;
-        return this;
-    }
-
-    public ImportFile withHeader(String headers) {
-        this.header = headers;
-        return this;
-    }
-
-    public Importer create(InputStream inputStream) throws IOException {
-        return create(createReaderFromStream(inputStream), null);
-    }
-
-    public Importer create(Reader reader) throws IOException {
-        return create(reader, null);
-    }
-
-    public Importer create(InputStream inputStream, GlobType globType) throws IOException {
-        return create(createReaderFromStream(inputStream), globType);
-    }
-
-    public Importer create(Reader reader, GlobType globType) throws IOException {
-        if (withSeparator) {
-            CSVParser parse = load(reader);
-            DefaultDataRead dataRead = new DefaultDataRead(parse, trim);
-            if (globType == null) {
-                globType = dataRead.createDefault();
-            }
-            return new DefaultImporter(globType, dataRead);
-        } else {
-            throw new RuntimeException("Not implemented");
-        }
-    }
-
-
-    interface UpdateLine {
-        ImportReader getImporter();
-
-        String getHeaderName();
-
-        boolean add(Glob glob);
-
-        boolean updateAndReset(MutableGlob to);
-    }
-
-    public Importer createMulti(Reader reader, GlobType globType) {
-        if (withSeparator) {
-            if (globType == null) {
-                throw new RuntimeException("Missing type");
-            }
-            CSVFormat csvFormat =
-                    CSVFormat.DEFAULT
-                            .withDelimiter(separator)
-                            .withEscape('\\')
-                            .withQuote(quoteChar);
-            DataRead dataRead = new MultiTypeDataRead(csvFormat, reader);
-            return new DefaultImporter(globType, dataRead);
-        } else {
-            throw new RuntimeException("Not implemented");
-        }
-    }
-
-    public void importContent(InputStream inputStream, Consumer<Glob> consumer, GlobType globType) throws IOException {
-        InputStreamReader reader = createReaderFromStream(inputStream);
-        importContent(reader, consumer, globType);
-    }
-
-    private InputStreamReader createReaderFromStream(InputStream inputStream) throws IOException {
-        return createReaderWithBomCheck(inputStream, charSet);
-    }
+    private List<Glob> transformer;
+    private Reformater reformater;
 
     public static InputStreamReader createReaderWithBomCheck(InputStream inputStream, Charset defaultCharset) throws IOException {
         BOMInputStream in = new BOMInputStream(inputStream, ByteOrderMark.UTF_8, ByteOrderMark.UTF_16LE, ByteOrderMark.UTF_16BE,
@@ -153,41 +49,6 @@ public class ImportFile {
         String bomCharsetName = in.getBOMCharsetName();
         InputStreamReader reader = new InputStreamReader(in, bomCharsetName != null ? Charset.forName(bomCharsetName) : defaultCharset);
         return reader;
-    }
-
-    public void importContent(Reader reader, Consumer<Glob> consumer, GlobType globType) throws IOException {
-        create(reader, globType).consume(consumer);
-    }
-
-    public DataRead getDataReader(InputStream inputStream) throws IOException {
-        return new DefaultDataRead(load(createReaderFromStream(inputStream)), trim);
-    }
-
-    private CSVParser load(Reader reader) throws IOException {
-        CSVFormat csvFormat =
-                CSVFormat.DEFAULT
-                        .withDelimiter(separator)
-                        .withEscape('\\')
-                        .withQuote(quoteChar);
-        if (header != null) {
-            List<String> elements = new ArrayList<>();
-            StringBuilder current = new StringBuilder();
-            for (char c : header.toCharArray()) {
-                if (c == separator) {
-                    elements.add(current.toString());
-                    current = new StringBuilder();
-                }
-                else {
-                    current.append(c);
-                }
-            }
-            elements.add(current.toString());
-            csvFormat = csvFormat.withHeader(elements.toArray(new String[0]));
-        }
-        else {
-            csvFormat = csvFormat.withFirstRecordAsHeader();
-        }
-        return csvFormat.parse(reader);
     }
 
     static public GlobType extractHeader(InputStream inputStream, Character separator) throws IOException {
@@ -207,6 +68,7 @@ public class ImportFile {
             int countDotComma = 0;
             int countComma = 0;
             int countTab = 0;
+            int countPipe = 0;
             for (char c : s.toCharArray()) {
                 switch (c) {
                     case ';':
@@ -218,19 +80,25 @@ public class ImportFile {
                     case '\t':
                         countTab++;
                         break;
+                    case '|':
+                        countPipe++;
                 }
             }
-            if (countComma > countDotComma && countComma > countTab) {
+            if (countComma > countDotComma && countComma > countTab && countComma > countPipe) {
                 separator = ',';
                 expectedField = countComma;
             }
-            if (countDotComma > countComma && countDotComma > countTab) {
+            if (countDotComma > countComma && countDotComma > countTab && countDotComma > countPipe) {
                 separator = ';';
                 expectedField = countDotComma;
             }
-            if (countTab > countComma && countTab > countDotComma) {
+            if (countTab > countComma && countTab > countDotComma && countTab > countPipe) {
                 separator = '\t';
                 expectedField = countTab;
+            }
+            if (countPipe > countComma && countPipe > countDotComma && countPipe > countTab) {
+                separator = '|';
+                expectedField = countComma;
             }
             if (separator != null) {
                 LOGGER.info("Found separator '" + separator + "'");
@@ -286,10 +154,184 @@ public class ImportFile {
         return s;
     }
 
+    public ImportFile withSeparator(char separator) {
+        withSeparator = true;
+        this.separator = separator;
+        importers = null;
+        return this;
+    }
+
+    public ImportFile withQuoteChar(Character quoteChar) {
+        this.quoteChar = quoteChar;
+        return this;
+    }
+
+    public ImportFile trim() {
+        trim = true;
+        return this;
+    }
+
+    public ImportFile withCharSet(String charSet) {
+        this.charSet = Charset.forName(charSet);
+        return this;
+    }
+
+    public ImportFile withCharSet(Charset charSet) {
+        this.charSet = charSet;
+        return this;
+    }
+
+    public ImportFile withRightPadding() {
+        paddingType = ExportBySize.PaddingType.right;
+        importers = null;
+        return this;
+    }
+
+    public ImportFile withLeftPadding() {
+        paddingType = ExportBySize.PaddingType.left;
+        importers = null;
+        return this;
+    }
+
+    public ImportFile withHeader(String headers) {
+        this.header = headers;
+        return this;
+    }
+
+    public Importer create(InputStream inputStream) throws IOException {
+        return create(createReaderFromStream(inputStream), null);
+    }
+
+    public Importer create(Reader reader) throws IOException {
+        return create(reader, null);
+    }
+
+    public Importer create(InputStream inputStream, GlobType globType) throws IOException {
+        return create(createReaderFromStream(inputStream), globType);
+    }
+
+    public Importer create(Reader reader, GlobType globType) throws IOException {
+        if (withSeparator) {
+            CSVParser parse = load(reader);
+            DefaultDataRead dataRead = new DefaultDataRead(parse, trim);
+            if (globType == null) {
+                globType = dataRead.createDefault();
+            }
+            if (transformer != null && !transformer.isEmpty()) {
+                reformater = new RealReformater(globType, transformer);
+            } else {
+                reformater = new NullReformater(globType);
+            }
+            return new DefaultImporter(globType, dataRead, reformater);
+        } else {
+            throw new RuntimeException("Not implemented");
+        }
+    }
+
+    public Importer createComplex(Reader reader, GlobType type) throws IOException {
+        Importer importer = create(reader);
+
+        ComplexImporter complexImporter = new ComplexImporter(reformater.getResultType(), type);
+
+        return new Importer() {
+            public GlobType getType() {
+                return type;
+            }
+
+            public <T extends Consumer<Glob>> T consume(T consumer) {
+                ComplexImporter.ConsumerWithCurrent globConsumer = complexImporter.create(consumer);
+                importer.consume(globConsumer);
+                globConsumer.end();
+                return consumer;
+            }
+        };
+    }
+
+    public ImportFile withTransformer(List<Glob> transformer) {
+        this.transformer = transformer;
+        return this;
+    }
+
+    public Importer createMulti(Reader reader, GlobType globType) {
+        return createMulti(reader, globType, List.of());
+    }
+
+    public Importer createMulti(Reader reader, GlobType globType, List<Glob> transformer) {
+        if (withSeparator) {
+            if (globType == null) {
+                throw new RuntimeException("Missing type");
+            }
+            CSVFormat csvFormat =
+                    CSVFormat.DEFAULT
+                            .withDelimiter(separator)
+                            .withEscape('\\')
+                            .withQuote(quoteChar);
+            DataRead dataRead = new MultiTypeDataRead(csvFormat, reader);
+
+            Reformater reformater = transformer == null || transformer.isEmpty() ? new NullReformater(globType) : new RealReformater(globType, transformer);
+            return new DefaultImporter(globType, dataRead, reformater);
+        } else {
+            throw new RuntimeException("Not implemented");
+        }
+    }
+
+    public void importContent(InputStream inputStream, Consumer<Glob> consumer, GlobType globType) throws IOException {
+        InputStreamReader reader = createReaderFromStream(inputStream);
+        importContent(reader, consumer, globType);
+    }
+
+    private InputStreamReader createReaderFromStream(InputStream inputStream) throws IOException {
+        return createReaderWithBomCheck(inputStream, charSet);
+    }
+
+    public void importContent(Reader reader, Consumer<Glob> consumer, GlobType globType) throws IOException {
+        create(reader, globType).consume(consumer);
+    }
+
+    public DataRead getDataReader(InputStream inputStream) throws IOException {
+        return new DefaultDataRead(load(createReaderFromStream(inputStream)), trim);
+    }
+
+    private CSVParser load(Reader reader) throws IOException {
+        CSVFormat csvFormat =
+                CSVFormat.DEFAULT
+                        .withDelimiter(separator)
+                        .withEscape('\\')
+                        .withQuote(quoteChar);
+        if (header != null) {
+            List<String> elements = new ArrayList<>();
+            StringBuilder current = new StringBuilder();
+            for (char c : header.toCharArray()) {
+                if (c == separator) {
+                    elements.add(current.toString());
+                    current = new StringBuilder();
+                } else {
+                    current.append(c);
+                }
+            }
+            elements.add(current.toString());
+            csvFormat = csvFormat.withHeader(elements.toArray(new String[0]));
+        } else {
+            csvFormat = csvFormat.withFirstRecordAsHeader();
+        }
+        return csvFormat.parse(reader);
+    }
+
+    interface UpdateLine {
+        ImportReader getImporter();
+
+        String getHeaderName();
+
+        boolean add(Glob glob);
+
+        boolean updateAndReset(MutableGlob to);
+    }
+
     public interface Importer {
         GlobType getType();
 
-        void consume(Consumer<Glob> consumer);
+        <T extends Consumer<Glob>>
+        T consume(T consumer);
     }
 
     public interface DataRead {
@@ -391,6 +433,7 @@ public class ImportFile {
                 public void visitDate(DateField field) throws Exception {
                     fieldReaders.add(new DateFieldReader(field, index, trim));
                 }
+
                 public void visitDateTime(DateTimeField field) throws Exception {
                     fieldReaders.add(new DateTimeFieldReader(field, index, trim));
                 }
@@ -496,9 +539,9 @@ public class ImportFile {
     static class DateTimeFieldReader implements FieldReader {
         final DateTimeField field;
         final int index;
+        private final ZoneId zoneId;
         private boolean trim;
         private DateTimeFormatter dateTimeFormatter;
-        private final ZoneId zoneId;
 
         DateTimeFieldReader(DateTimeField field, int index, boolean trim) {
             this.field = field;
@@ -521,7 +564,7 @@ public class ImportFile {
                 TemporalAccessor temporalAccessor = dateTimeFormatter.parseBest(s.trim(), ZonedDateTime::from, LocalDateTime::from, LocalDate::from);
                 if (temporalAccessor instanceof ZonedDateTime) {
                     mutableGlob.set(field, (ZonedDateTime) temporalAccessor);
-                } else if (temporalAccessor instanceof LocalDateTime){
+                } else if (temporalAccessor instanceof LocalDateTime) {
                     mutableGlob.set(field, ((LocalDateTime) temporalAccessor).atZone(zoneId));
                 } else if (temporalAccessor instanceof LocalDate) {
                     mutableGlob.set(field, ZonedDateTime.of((LocalDate) temporalAccessor, LocalTime.MIDNIGHT, zoneId));
@@ -575,18 +618,41 @@ public class ImportFile {
     private static class DefaultImporter implements Importer {
         private final GlobType globType;
         private final DataRead dataRead;
+        private final Reformater reformater;
 
-        public DefaultImporter(GlobType globType, DataRead dataRead) {
+        public DefaultImporter(GlobType globType, DataRead dataRead, Reformater reformater) {
             this.globType = globType;
             this.dataRead = dataRead;
+            this.reformater = reformater;
         }
 
         public GlobType getType() {
+            return reformater.getResultType();
+        }
+
+        public <T extends Consumer<Glob>> T consume(T consumer) {
+            dataRead.read(glob -> {
+                consumer.accept(reformater.transform(glob));
+            }, globType);
+            return consumer;
+        }
+    }
+
+    private static class NullReformater implements Reformater {
+        private final GlobType globType;
+
+        public NullReformater(GlobType globType) {
+            this.globType = globType;
+        }
+
+        @Override
+        public GlobType getResultType() {
             return globType;
         }
 
-        public void consume(Consumer<Glob> consumer) {
-            dataRead.read(consumer, globType);
+        @Override
+        public Glob transform(Glob from) {
+            return from;
         }
     }
 
@@ -609,8 +675,7 @@ public class ImportFile {
                     if (annotation != null) {
                         if (field instanceof GlobField) {
                             lines.add(new SingleUpdateLine(field, annotation));
-                        }
-                        else if (field instanceof GlobArrayField) {
+                        } else if (field instanceof GlobArrayField) {
                             lines.add(new MultiLineUpdateLine(field, annotation));
                         }
 
@@ -661,6 +726,19 @@ public class ImportFile {
             consumer.accept(res);
         }
 
+        private ImportReader initImportReader(GlobType targetType) {
+            ImportReaderBuilder importReaderBuilder = new ImportReaderBuilder(targetType, trim);
+            targetType.streamFields().forEach(new Consumer<>() {
+                int i = 0;
+
+                public void accept(Field f) {
+                    importReaderBuilder.declare(f, ++i);
+                }
+            });
+            ImportReader build = importReaderBuilder.build();
+            return build;
+        }
+
         private class SingleUpdateLine implements UpdateLine {
             final ImportReader importReaderBuilder;
             private final Field field;
@@ -674,11 +752,11 @@ public class ImportFile {
                 this.importReaderBuilder = initImportReader(targetType);
             }
 
-            public ImportReader getImporter(){
+            public ImportReader getImporter() {
                 return importReaderBuilder;
             }
 
-            public String getHeaderName(){
+            public String getHeaderName() {
                 return annotation.get(CsvHeader.name);
             }
 
@@ -697,8 +775,7 @@ public class ImportFile {
                     to.set(((GlobField) field), got);
                     got = null;
                     return true;
-                }
-                else {
+                } else {
                     return false;
                 }
             }
@@ -718,11 +795,11 @@ public class ImportFile {
                 this.importReaderBuilder = initImportReader(targetType);
             }
 
-            public ImportReader getImporter(){
+            public ImportReader getImporter() {
                 return importReaderBuilder;
             }
 
-            public String getHeaderName(){
+            public String getHeaderName() {
                 return annotation.get(CsvHeader.name);
             }
 
@@ -736,22 +813,10 @@ public class ImportFile {
                     to.set(((GlobArrayField) field), gots.toArray(Glob[]::new));
                     gots.clear();
                     return true;
-                }
-                else {
+                } else {
                     return false;
                 }
             }
-        }
-        private ImportReader initImportReader(GlobType targetType) {
-            ImportReaderBuilder importReaderBuilder = new ImportReaderBuilder(targetType, trim);
-            targetType.streamFields().forEach(new Consumer<>() {
-                int i = 0;
-                public void accept(Field f) {
-                    importReaderBuilder.declare(f, ++i);
-                }
-            });
-            ImportReader build = importReaderBuilder.build();
-            return build;
         }
 
     }
