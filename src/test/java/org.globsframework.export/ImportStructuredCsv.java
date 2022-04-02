@@ -25,7 +25,7 @@ public class ImportStructuredCsv {
                 "aa;cc;\n" +
                 "bbb;bb;\n";
 
-            List<Glob> l = new ArrayList<>();
+        List<Glob> l = new ArrayList<>();
         Consumer<Glob> globConsumer = new Consumer<Glob>() {
             public void accept(Glob glob) {
                 l.add(glob);
@@ -85,6 +85,7 @@ public class ImportStructuredCsv {
             GlobTypeLoaderFactory.create(L2.class).load();
         }
     }
+
     public static class L3 {
         public static GlobType TYPE;
 

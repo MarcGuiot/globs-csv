@@ -5,7 +5,6 @@ import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.GlobTypeBuilder;
 import org.globsframework.metamodel.fields.GlobArrayField;
 import org.globsframework.metamodel.fields.GlobField;
-import org.globsframework.metamodel.impl.DefaultGlobTypeBuilder;
 import org.globsframework.model.Glob;
 import org.globsframework.model.MutableGlob;
 import org.slf4j.Logger;
@@ -102,10 +101,16 @@ public class ComplexImporter {
             return true;
         }
 
-        void copy(MutableGlob to, Glob from) {
+        boolean copy(MutableGlob to, Glob from) {
+            boolean hasChange = false;
             for (LineToTargetField field : fields) {
-                to.setValue(field.to, from.getValue(field.from));
+                Object value = from.getValue(field.from);
+                if (value != null) {
+                    hasChange = true;
+                    to.setValue(field.to, value);
+                }
             }
+            return hasChange;
         }
 
     }
@@ -115,6 +120,7 @@ public class ComplexImporter {
         GlobType type;
         List<Attr> attrs;
         MutableGlob current;
+        private boolean wasReturn;
 
         public CompositeState(FieldMapper fieldMapper, GlobType type, List<Attr> attrs) {
             this.fieldMapper = fieldMapper;
@@ -144,13 +150,14 @@ public class ComplexImporter {
         }
 
         public Glob onNewLine(Glob line) {
-            boolean isNew = current == null || !fieldMapper.isSame(current, line);
-            if (isNew) {
+            boolean hasChange = false;
+            if (current == null || !fieldMapper.isSame(current, line)) {
                 current = type.instantiate();
+                wasReturn = false;
                 for (Attr attr : attrs) {
                     attr.state.reset();
                 }
-                fieldMapper.copy(current, line);
+                hasChange = fieldMapper.copy(current, line);
             }
             for (Attr attr : attrs) {
                 Glob glob = attr.state.onNewLine(line);
@@ -159,10 +166,17 @@ public class ComplexImporter {
                     d = Arrays.copyOf(d, d.length + 1);
                     d[d.length - 1] = glob;
                     current.set(attr.array, d);
+                    hasChange = true;
                 }
             }
 
-            return isNew ? current : null;
+            if (hasChange && !wasReturn) {
+                wasReturn = true;
+                return current;
+            }
+            else {
+                return null;
+            }
         }
 
         public void reset() {

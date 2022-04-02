@@ -34,7 +34,9 @@ public class RealReformater implements Reformater{
                 fieldMerger.add(new Mapper() {
                                     public void apply(Glob from, MutableGlob to) {
                                         String res = merger.merge(from);
-                                        to.set(str, res);
+                                        if (res != null) {
+                                            to.set(str, res);
+                                        }
                                     }
                                 }
                 );
@@ -56,7 +58,9 @@ public class RealReformater implements Reformater{
                 fieldMerger.add(new Mapper() {
                                     public void apply(Glob from, MutableGlob to) {
                                         String res = merger.merge(from);
-                                        to.set(str, res);
+                                        if (res != null) {
+                                            to.set(str, res);
+                                        }
                                     }
                                 }
                 );
