@@ -2,7 +2,6 @@ package org.globsframework.export;
 
 import org.globsframework.export.annotation.CsvHeader_;
 import org.globsframework.metamodel.GlobType;
-import org.globsframework.metamodel.GlobTypeLoader;
 import org.globsframework.metamodel.GlobTypeLoaderFactory;
 import org.globsframework.metamodel.annotations.Target;
 import org.globsframework.metamodel.fields.GlobArrayField;
@@ -13,6 +12,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.StringReader;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -51,6 +51,12 @@ public class MultiTypeTest {
         Glob glob3 = got.get(2);
         Assert.assertNotNull(glob3.get(Root.typeA));
         Assert.assertEquals(0, glob3.getOrEmpty(Root.typeB).length);
+
+        ExportBySize exportBySize = new ExportBySize();
+        StringWriter writer = new StringWriter();
+        exportBySize.withSeparator(';');
+        exportBySize.exportMulti(Root.TYPE, got.stream(), writer);
+        Assert.assertEquals(data, writer.toString());
     }
 
     public static class Root {

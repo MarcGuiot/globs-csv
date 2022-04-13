@@ -1,9 +1,6 @@
 package org.globsframework.export;
 
-import org.globsframework.export.annotation.ExportBooleanFormat;
-import org.globsframework.export.annotation.ExportColumnSize;
-import org.globsframework.export.annotation.ExportDateFormat;
-import org.globsframework.export.annotation.ExportDoubleFormat;
+import org.globsframework.export.annotation.*;
 import org.globsframework.metamodel.Field;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.annotations.IsDate;
@@ -14,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.StringWriter;
 import java.io.Writer;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -23,6 +21,8 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 public class ExportBySize {
@@ -64,6 +64,39 @@ public class ExportBySize {
         withPadding = PaddingType.left;
         exportGlob = null;
         return this;
+    }
+
+    public void exportMulti(GlobType rootType, Stream<Glob> globStream, Writer writer) {
+        if (exportGlob == null) {
+            exportGlob = new ExportGlob(this, withPadding != null ? new RealPaddingFactory(withPadding) : field -> Padding.NOPADDING);
+        }
+        Field[] fields = rootType.getFields();
+        LineWriter lineWriter = new LineWriterToWriter(writer);
+        List<Consumer<Glob>> consumers = new ArrayList<>();
+        for (Field field : fields) {
+            if (field.hasAnnotation(CsvHeader.KEY)) {
+                String header = field.getAnnotation(CsvHeader.KEY).get(CsvHeader.name);
+                if (field instanceof GlobArrayField) {
+                    consumers.add(glob -> {
+                        Glob[] orEmpty = glob.getOrEmpty((GlobArrayField) field);
+                        for (Glob glob1 : orEmpty) {
+                            exportGlob.add(lineWriter, header, false);
+                            exportGlob.accept(glob1, lineWriter);
+                        }
+                    });
+                } else if (field instanceof GlobField) {
+                    consumers.add(glob -> {
+                        exportGlob.add(lineWriter, header, false);
+                        exportGlob.accept(glob.get((GlobField) field), lineWriter);
+                    });
+                }
+            }
+        }
+        globStream.forEach(glob -> {
+            for (Consumer<Glob> consumer : consumers) {
+                consumer.accept(glob);
+            }
+        });
     }
 
     public void export(Stream<Glob> globStream, Writer writer) {
@@ -597,14 +630,16 @@ public class ExportBySize {
         }
     }
 
-    private class ExportGlob {
+    private static class ExportGlob {
         private final Map<GlobType, WriteObject> writeObjectMap = new HashMap<>();
         private ExportBySize exportBySize;
         private PaddingFactory paddingFactory;
+        private AddSeperator separator;
 
         public ExportGlob(ExportBySize exportBySize, PaddingFactory paddingFactory) {
             this.exportBySize = exportBySize;
             this.paddingFactory = paddingFactory;
+            separator = exportBySize.withSeparator ? new RealAddSeparator(exportBySize.separator) : AddSeperator.NULL;
         }
 
         public void accept(Glob glob, LineWriter writer) {
@@ -618,12 +653,14 @@ public class ExportBySize {
             }
         }
 
-        private WriteObject apply(GlobType globType) {
-            return new WriteObject(exportBySize, globType,
-                    withSeparator ? new RealAddSeparator(separator) : AddSeperator.NULL,
-                    paddingFactory, fieldsToExclude);
+        private void add(LineWriter writer, String value, boolean isLast) {
+            writer.append(value);
+            separator.seperate(writer, isLast);
         }
 
+        private WriteObject apply(GlobType globType) {
+            return new WriteObject(exportBySize, globType, separator, paddingFactory, exportBySize.fieldsToExclude);
+        }
 
         public void exportHeader(GlobType headerType, Writer writer) {
             exportHeader(headerType, new LineWriterToWriter(writer));
