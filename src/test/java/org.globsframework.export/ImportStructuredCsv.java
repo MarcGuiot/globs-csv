@@ -20,8 +20,8 @@ public class ImportStructuredCsv {
 
     @Test
     public void name() throws IOException {
-        String str = "a;b;c\n" +
-                "aa;bb;aa\n" +
+        String str = "a;b;c;dd\n" +
+                "aa;bb;aa;d\n" +
                 "aa;cc;\n" +
                 "bbb;bb;\n";
 
@@ -44,16 +44,26 @@ public class ImportStructuredCsv {
                 .set(FieldMappingType.to, "cc")
                 .set(FieldMappingType.from, FieldMappingType.FromType.TYPE.instantiate()
                         .set(FieldMappingType.FromType.from, "c"));
+        Glob d = FieldMappingType.TYPE.instantiate()
+                .set(FieldMappingType.to, "dd")
+                .set(FieldMappingType.from, FieldMappingType.FromType.TYPE.instantiate()
+                        .set(FieldMappingType.FromType.from, "dd"));
 
         ImportFile.Importer importFile = new ImportFile().withSeparator(';')
-                .withTransformer(List.of(a, b, c))
+                .withTransformer(List.of(a, b, c, d))
                 .createComplex(new StringReader(str), L1.TYPE);
         importFile.consume(globConsumer);
         Assert.assertEquals(2, l.size());
-        Assert.assertEquals("aa", l.get(0).get(L1.aa));
+        Glob first = l.get(0);
+        Assert.assertEquals("aa", first.get(L1.aa));
         Assert.assertEquals("bbb", l.get(1).get(L1.aa));
-        Assert.assertEquals(2, l.get(0).get(L1.l2).length);
-        Assert.assertEquals(1, l.get(0).get(L1.l2)[0].get(L2.l3).length);
+        Assert.assertEquals(2, first.get(L1.l2).length);
+        Assert.assertEquals(1, first.get(L1.l2)[0].get(L2.l3).length);
+        Glob fullFirstLine = first.get(L1.l2)[0].get(L2.l3)[0];
+        Assert.assertEquals("aa", fullFirstLine.get(L3.aa));
+        Assert.assertEquals("bb", fullFirstLine.get(L3.bb));
+        Assert.assertEquals("aa", fullFirstLine.get(L3.cc));
+        Assert.assertEquals("d", fullFirstLine.get(L3.dd));
     }
 
 
@@ -89,6 +99,9 @@ public class ImportStructuredCsv {
     public static class L3 {
         public static GlobType TYPE;
 
+        public static StringField aa;
+        public static StringField bb;
+        public static StringField cc;
         public static StringField dd;
 
         static {

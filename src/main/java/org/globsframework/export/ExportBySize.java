@@ -5,13 +5,13 @@ import org.globsframework.metamodel.Field;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.annotations.IsDate;
 import org.globsframework.metamodel.fields.*;
+import org.globsframework.model.FieldValuesBuilder;
 import org.globsframework.model.Glob;
 import org.globsframework.utils.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.StringWriter;
 import java.io.Writer;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -21,8 +21,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 public class ExportBySize {
@@ -38,6 +36,7 @@ public class ExportBySize {
     private Character escape = '"';
     private ExportGlob exportGlob;
     private Set<Field> fieldsToExclude = new HashSet<>();
+    private Set<String> names = new HashSet<>();
 
     public ExportBySize() {
     }
@@ -63,6 +62,11 @@ public class ExportBySize {
     public ExportBySize withLeftPadding() {
         withPadding = PaddingType.left;
         exportGlob = null;
+        return this;
+    }
+
+    public ExportBySize filterBy(String ...name) {
+        this.names.addAll(List.of(name));
         return this;
     }
 
@@ -265,16 +269,20 @@ public class ExportBySize {
         private final List<FieldWrite> fieldWrites = new ArrayList<>();
         private final AddSeperator separator;
 
-        public WriteObject(ExportBySize exportBySize, GlobType type, AddSeperator separator, PaddingFactory paddingFactory, Set<Field> fieldsToExclude) {
+        public WriteObject(ExportBySize exportBySize, GlobType type, AddSeperator separator, PaddingFactory paddingFactory,
+                           Set<Field> fieldsToExclude, Set<String> names) {
             this.exportBySize = exportBySize;
             this.separator = separator;
             for (Field field : type.getFields()) {
-                if (!fieldsToExclude.contains(field)) {
-                    Padding padding = paddingFactory.create(field);
-                    if (padding == null) {
-                        LOGGER.warn("Field Ignored " + field.getFullName());
-                    } else {
-                        fieldWrites.add(field.safeVisit(new FieldWriterVisitor(exportBySize, padding)).fieldWrite);
+                if (names.isEmpty() || field.findOptAnnotation(NamedExport.KEY)
+                        .map(NamedExport.names).stream().flatMap(Stream::of).anyMatch(names::contains)) {
+                    if (!fieldsToExclude.contains(field)) {
+                        Padding padding = paddingFactory.create(field);
+                        if (padding == null) {
+                            LOGGER.warn("Field Ignored " + field.getFullName());
+                        } else {
+                            fieldWrites.add(field.safeVisit(new FieldWriterVisitor(exportBySize, padding)).fieldWrite);
+                        }
                     }
                 }
             }
@@ -659,7 +667,7 @@ public class ExportBySize {
         }
 
         private WriteObject apply(GlobType globType) {
-            return new WriteObject(exportBySize, globType, separator, paddingFactory, exportBySize.fieldsToExclude);
+            return new WriteObject(exportBySize, globType, separator, paddingFactory, exportBySize.fieldsToExclude, exportBySize.names);
         }
 
         public void exportHeader(GlobType headerType, Writer writer) {

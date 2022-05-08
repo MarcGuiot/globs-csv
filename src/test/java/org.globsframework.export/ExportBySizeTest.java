@@ -2,6 +2,7 @@ package org.globsframework.export;
 
 import org.globsframework.export.annotation.ExportColumnSize_;
 import org.globsframework.export.annotation.ExportDateFormat_;
+import org.globsframework.export.annotation.NamedExport_;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.GlobTypeLoaderFactory;
 import org.globsframework.metamodel.annotations.TypedIsDate;
@@ -186,13 +187,40 @@ public class ExportBySizeTest {
         Assert.assertEquals(expected, writer.toString());
     }
 
+    @Test
+    public void filterByName() {
+        MutableGlob data = Data.TYPE.instantiate().set(Data.NAME, "some data")
+                .set(Data.COUNT, 300)
+                .set(Data.VALUE, 3235.14153)
+                .set(Data.DATE_AS_INT, (int) LocalDate.of(2018, 01, 02).toEpochDay())
+                .set(Data.DATE, LocalDate.of(2019, 01, 02));
+
+        {
+            StringWriter writer = new StringWriter();
+            ExportBySize exportBySize = new ExportBySize();
+            exportBySize.withSeparator('|').filterBy("v1");
+            exportBySize.export(Stream.of(data), writer);
+            assertEquals("some data\n", writer.getBuffer().toString());
+        }
+        {
+            StringWriter writer = new StringWriter();
+            ExportBySize exportBySize = new ExportBySize();
+            exportBySize.withSeparator('|').filterBy("v1", "v2");
+            exportBySize.export(Stream.of(data), writer);
+            assertEquals("some data|300\n", writer.getBuffer().toString());
+        }
+
+    }
+
     public static class Data {
         public static GlobType TYPE;
 
         @ExportColumnSize_(10)
+        @NamedExport_("v1")
         public static StringField NAME;
 
         @ExportColumnSize_(6)
+        @NamedExport_({"v2"})
         public static IntegerField COUNT;
 
         @ExportColumnSize_(12)
