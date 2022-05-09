@@ -5,7 +5,6 @@ import org.globsframework.metamodel.Field;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.annotations.IsDate;
 import org.globsframework.metamodel.fields.*;
-import org.globsframework.model.FieldValuesBuilder;
 import org.globsframework.model.Glob;
 import org.globsframework.utils.Strings;
 import org.slf4j.Logger;
@@ -36,7 +35,8 @@ public class ExportBySize {
     private Character escape = '"';
     private ExportGlob exportGlob;
     private Set<Field> fieldsToExclude = new HashSet<>();
-    private Set<String> names = new HashSet<>();
+    private Set<String> filter = new HashSet<>();
+    private String name;
 
     public ExportBySize() {
     }
@@ -65,8 +65,8 @@ public class ExportBySize {
         return this;
     }
 
-    public ExportBySize filterBy(String ...name) {
-        this.names.addAll(List.of(name));
+    public ExportBySize filterBy(String... name) {
+        this.filter.addAll(List.of(name));
         return this;
     }
 
@@ -163,6 +163,11 @@ public class ExportBySize {
         exportGlob = null;
     }
 
+    public ExportBySize named(String name) {
+        this.name = name;
+        return this;
+    }
+
     enum PaddingType {
         left, right
     }
@@ -170,7 +175,7 @@ public class ExportBySize {
     interface FieldWrite {
         void write(Glob glob, LineWriter writer);
 
-        void writeHeader(LineWriter writer);
+        void writeHeader(LineWriter writer, String name);
     }
 
     interface AddSeperator {
@@ -268,11 +273,13 @@ public class ExportBySize {
         private final ExportBySize exportBySize;
         private final List<FieldWrite> fieldWrites = new ArrayList<>();
         private final AddSeperator separator;
+        private final String name;
 
         public WriteObject(ExportBySize exportBySize, GlobType type, AddSeperator separator, PaddingFactory paddingFactory,
-                           Set<Field> fieldsToExclude, Set<String> names) {
+                           Set<Field> fieldsToExclude, Set<String> names, String name) {
             this.exportBySize = exportBySize;
             this.separator = separator;
+            this.name = name;
             for (Field field : type.getFields()) {
                 if (names.isEmpty() || field.findOptAnnotation(NamedExport.KEY)
                         .map(NamedExport.names).stream().flatMap(Stream::of).anyMatch(names::contains)) {
@@ -281,7 +288,7 @@ public class ExportBySize {
                         if (padding == null) {
                             LOGGER.warn("Field Ignored " + field.getFullName());
                         } else {
-                            fieldWrites.add(field.safeVisit(new FieldWriterVisitor(exportBySize, padding)).fieldWrite);
+                            fieldWrites.add(field.safeVisit(new FieldWriterVisitor(exportBySize, padding, name)).fieldWrite);
                         }
                     }
                 }
@@ -291,7 +298,7 @@ public class ExportBySize {
         public void writeHeader(LineWriter writer) {
             for (Iterator<FieldWrite> iterator = fieldWrites.iterator(); iterator.hasNext(); ) {
                 FieldWrite fieldWrite = iterator.next();
-                fieldWrite.writeHeader(writer);
+                fieldWrite.writeHeader(writer, name);
                 separator.seperate(writer, !iterator.hasNext());
             }
         }
@@ -310,7 +317,7 @@ public class ExportBySize {
         private ExportBySize exportBySize;
         private Padding padding;
 
-        public FieldWriterVisitor(ExportBySize exportBySize, Padding padding) {
+        public FieldWriterVisitor(ExportBySize exportBySize, Padding padding, String name) {
             this.exportBySize = exportBySize;
             this.padding = padding;
         }
@@ -360,8 +367,8 @@ public class ExportBySize {
             this.field = field;
         }
 
-        public void writeHeader(LineWriter writer) {
-            writer.append(field.getName());
+        public void writeHeader(LineWriter writer, String name) {
+            writer.append(ReNamedExport.getHeaderName(name, field));
         }
     }
 
@@ -667,7 +674,8 @@ public class ExportBySize {
         }
 
         private WriteObject apply(GlobType globType) {
-            return new WriteObject(exportBySize, globType, separator, paddingFactory, exportBySize.fieldsToExclude, exportBySize.names);
+            return new WriteObject(exportBySize, globType, separator, paddingFactory, exportBySize.fieldsToExclude,
+                    exportBySize.filter, exportBySize.name);
         }
 
         public void exportHeader(GlobType headerType, Writer writer) {

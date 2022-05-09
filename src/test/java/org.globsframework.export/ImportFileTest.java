@@ -2,6 +2,8 @@ package org.globsframework.export;
 
 import org.globsframework.export.annotation.ExportDateFormat_;
 import org.globsframework.export.annotation.ImportEmptyStringHasEmptyStringFormat_;
+import org.globsframework.export.annotation.ReNamedExport_;
+import org.globsframework.export.annotation.ReNamedMappingExport_;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.GlobTypeLoaderFactory;
 import org.globsframework.metamodel.annotations.FieldNameAnnotation;
@@ -248,20 +250,62 @@ public class ImportFileTest {
         importFile.withSeparator(',');
 
         List<Glob> imports = new ArrayList<>();
-            importFile.importContent(new StringReader(
-                    "PRODUCT_ID,date,dateTime,dateTimeWithoutTime\n" +
-                            "1,20201130,20201130 223200,20201130\n"
-            ), new Consumer<Glob>() {
-                public void accept(Glob glob) {
-                    imports.add(glob);
-                }
-            }, Type.TYPE);
+        importFile.importContent(new StringReader(
+                "PRODUCT_ID,date,dateTime,dateTimeWithoutTime\n" +
+                        "1,20201130,20201130 223200,20201130\n"
+        ), new Consumer<Glob>() {
+            public void accept(Glob glob) {
+                imports.add(glob);
+            }
+        }, Type.TYPE);
 
         Assert.assertEquals(1, imports.size());
         Assert.assertEquals("2020-11-29", imports.get(0).get(Type.dateTimeWithoutTime).format(DateTimeFormatter.ISO_LOCAL_DATE
                 .withZone(ZoneId.of("America/Los_Angeles"))));
         Assert.assertEquals("2020-11-30", imports.get(0).get(Type.dateTimeWithoutTime).format(DateTimeFormatter.ISO_LOCAL_DATE
                 .withZone(ZoneId.of("Europe/Paris"))));
+    }
+
+    @Test
+    public void renameHeader() throws IOException {
+        ImportFile importFile = new ImportFile();
+        importFile.withSeparator(',');
+        importFile.withNameFrom("fi");
+
+        List<Glob> imports = new ArrayList<>();
+        importFile.importContent(new StringReader(
+                "aa,cc,dd\n" +
+                        "AZE,EZA,QDS\n"
+        ), new Consumer<Glob>() {
+            public void accept(Glob glob) {
+                imports.add(glob);
+            }
+        }, RenameTestType.TYPE);
+        Assert.assertEquals(1, imports.size());
+        Glob glob;
+        {
+            glob = imports.get(0);
+            Assert.assertEquals("AZE", glob.get(RenameTestType.a));
+            Assert.assertEquals("EZA", glob.get(RenameTestType.b));
+            Assert.assertEquals("QDS", glob.get(RenameTestType.d));
+        }
+    }
+
+    static public class RenameTestType {
+        public static GlobType TYPE;
+
+        @ReNamedExport_(multi = @ReNamedMappingExport_(name = "fi", to = "aa"))
+        public static StringField a;
+
+        @ReNamedExport_(multi = @ReNamedMappingExport_(name = "fi", to = "cc"))
+        public static StringField b;
+
+        @ReNamedExport_("dd")
+        public static StringField d;
+
+        static {
+            GlobTypeLoaderFactory.create(RenameTestType.class).load();
+        }
     }
 
     static public class Type {

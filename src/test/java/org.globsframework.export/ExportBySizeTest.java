@@ -198,14 +198,18 @@ public class ExportBySizeTest {
         {
             StringWriter writer = new StringWriter();
             ExportBySize exportBySize = new ExportBySize();
-            exportBySize.withSeparator('|').filterBy("v1");
+            exportBySize
+                    .withSeparator('|')
+                    .filterBy("v1");
             exportBySize.export(Stream.of(data), writer);
             assertEquals("some data\n", writer.getBuffer().toString());
         }
         {
             StringWriter writer = new StringWriter();
             ExportBySize exportBySize = new ExportBySize();
-            exportBySize.withSeparator('|').filterBy("v1", "v2");
+            exportBySize.withSeparator('|')
+                    .named("v1")
+                    .filterBy("v1", "v2");
             exportBySize.export(Stream.of(data), writer);
             assertEquals("some data|300\n", writer.getBuffer().toString());
         }

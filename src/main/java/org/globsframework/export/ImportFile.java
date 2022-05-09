@@ -5,9 +5,7 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.ByteOrderMark;
 import org.apache.commons.io.input.BOMInputStream;
-import org.globsframework.export.annotation.CsvHeader;
-import org.globsframework.export.annotation.ExportDateFormat;
-import org.globsframework.export.annotation.ImportEmptyStringHasEmptyStringFormat;
+import org.globsframework.export.annotation.*;
 import org.globsframework.metamodel.Field;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.GlobTypeBuilder;
@@ -41,6 +39,7 @@ public class ImportFile {
     private boolean trim;
     private String header;
     private List<Glob> transformer;
+    private String reNameFrom;
     private Reformater reformater;
 
     public static InputStreamReader createReaderWithBomCheck(InputStream inputStream, Charset defaultCharset) throws IOException {
@@ -176,6 +175,11 @@ public class ImportFile {
         return this;
     }
 
+    public ImportFile withNameFrom(String name) {
+        this.reNameFrom = name;
+        return this;
+    }
+
     public ImportFile withCharSet(Charset charSet) {
         this.charSet = charSet;
         return this;
@@ -213,7 +217,7 @@ public class ImportFile {
     public Importer create(Reader reader, GlobType globType) throws IOException {
         if (withSeparator) {
             CSVParser parse = load(reader);
-            DefaultDataRead dataRead = new DefaultDataRead(parse, trim);
+            DefaultDataRead dataRead = new DefaultDataRead(parse, trim, reNameFrom);
             if (globType == null) {
                 globType = dataRead.createDefault();
             }
@@ -289,7 +293,7 @@ public class ImportFile {
     }
 
     public DataRead getDataReader(InputStream inputStream) throws IOException {
-        return new DefaultDataRead(load(createReaderFromStream(inputStream)), trim);
+        return new DefaultDataRead(load(createReaderFromStream(inputStream)), trim, reNameFrom);
     }
 
     private CSVParser load(Reader reader) throws IOException {
@@ -320,7 +324,7 @@ public class ImportFile {
     interface UpdateLine {
         ImportReader getImporter();
 
-        String getHeaderName();
+        String getMarkerName();
 
         boolean add(Glob glob);
 
@@ -346,11 +350,13 @@ public class ImportFile {
     static class DefaultDataRead implements DataRead {
         private CSVParser parse;
         private boolean trim;
+        private final String reNameFrom;
         private int countLine = 0;
 
-        public DefaultDataRead(CSVParser parse, boolean trim) {
+        public DefaultDataRead(CSVParser parse, boolean trim, String reNameFrom) {
             this.parse = parse;
             this.trim = trim;
+            this.reNameFrom = reNameFrom;
         }
 
         public Map<String, Integer> getHeader() {
@@ -366,11 +372,27 @@ public class ImportFile {
             return globTypeBuilder.get();
         }
 
+        static class RemapName {
+            public Map<String, Field> headNameToField = new HashMap<>();
+
+            RemapName(String name, GlobType type) {
+                Field[] fields = type.getFields();
+                for (Field field : fields) {
+                    String headerName = ReNamedExport.getHeaderName(name, field);
+                    headNameToField.put(headerName, field);
+                }
+            }
+        }
+
         public void read(Consumer<Glob> consumer, GlobType globType) {
             ImportReaderBuilder readerBuilder = new ImportReaderBuilder(globType, trim);
+            RemapName remapName = new RemapName(reNameFrom, globType);
             Map<String, Integer> headerMap = parse.getHeaderMap();
             for (Map.Entry<String, Integer> stringIntegerEntry : headerMap.entrySet()) {
-                Field field = findField(globType, stringIntegerEntry);
+                Field field = remapName.headNameToField.get(stringIntegerEntry.getKey());
+                if (field == null) {
+                    field = findField(globType, stringIntegerEntry);
+                }
                 if (field != null) {
                     readerBuilder.declare(field, stringIntegerEntry.getValue());
                 } else {
@@ -667,7 +689,6 @@ public class ImportFile {
 
         public void read(Consumer<Glob> consumer, GlobType globType) {
             try {
-                CSVParser parse = csvFormat.parse(reader);
                 Field[] fields = globType.getFields();
                 List<UpdateLine> lines = new ArrayList<>();
                 for (Field field : fields) {
@@ -682,11 +703,12 @@ public class ImportFile {
                     }
                 }
 
+                CSVParser parse = csvFormat.parse(reader);
                 Iterator<UpdateLine> first = lines.iterator();
                 UpdateLine current = first.next();
                 for (CSVRecord csvRecord : parse) {
                     String h = csvRecord.get(0);
-                    while (!current.getHeaderName().equals(h)) {
+                    while (!current.getMarkerName().equals(h)) {
                         if (!first.hasNext()) {
                             pushGlob(consumer, globType, lines);
                             first = lines.iterator();
@@ -756,7 +778,7 @@ public class ImportFile {
                 return importReaderBuilder;
             }
 
-            public String getHeaderName() {
+            public String getMarkerName() {
                 return annotation.get(CsvHeader.name);
             }
 
@@ -799,7 +821,7 @@ public class ImportFile {
                 return importReaderBuilder;
             }
 
-            public String getHeaderName() {
+            public String getMarkerName() {
                 return annotation.get(CsvHeader.name);
             }
 
