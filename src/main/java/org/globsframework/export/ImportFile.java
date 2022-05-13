@@ -440,6 +440,10 @@ public class ImportFile {
                     fieldReaders.add(new IntegerFieldReader(field, index, trim));
                 }
 
+                public void visitBoolean(BooleanField field) throws Exception {
+                    fieldReaders.add(new BooleanFieldReader(field, index));
+                }
+
                 public void visitDouble(DoubleField field) throws Exception {
                     fieldReaders.add(new DoubleFieldReader(field, index, trim));
                 }
@@ -504,6 +508,24 @@ public class ImportFile {
             if (Strings.isNotEmpty(s)) {
                 s = removeZero.matcher(s.trim()).replaceAll("");
                 mutableGlob.set(field, Integer.parseInt(s));
+            }
+        }
+    }
+
+    static class BooleanFieldReader implements FieldReader {
+        final BooleanField field;
+        final int index;
+
+        public BooleanFieldReader(BooleanField field, int index) {
+            this.field = field;
+            this.index = index;
+        }
+
+        @Override
+        public void read(MutableGlob mutableGlob, CSVRecord record) {
+            String s = getValue(record, index, true);
+            if (Strings.isNotEmpty(s)) {
+                mutableGlob.set(field, s.equalsIgnoreCase("true") || s.equalsIgnoreCase("1"));
             }
         }
     }
