@@ -7,8 +7,6 @@ import org.globsframework.metamodel.annotations.GlobCreateFromAnnotation;
 import org.globsframework.metamodel.annotations.InitUniqueKey;
 import org.globsframework.metamodel.annotations.Target;
 import org.globsframework.metamodel.fields.GlobArrayField;
-import org.globsframework.metamodel.fields.GlobField;
-import org.globsframework.metamodel.fields.StringArrayField;
 import org.globsframework.metamodel.fields.StringField;
 import org.globsframework.model.Glob;
 import org.globsframework.model.Key;
@@ -40,19 +38,19 @@ public class ReNamedExport {
     }
 
     public static String getHeaderName(String name, Field field) {
-        if (Strings.isNotEmpty(name)) {
-            Optional<Glob> annotation = field.findOptAnnotation(KEY);
-            if (annotation.isPresent()) {
+        Optional<Glob> annotation = field.findOptAnnotation(KEY);
+        if (annotation.isPresent()) {
+            if (Strings.isNotEmpty(name)) {
                 Glob[] renamed = annotation.get().getOrEmpty(names);
                 for (Glob glob : renamed) {
                     if (glob.get(Mapping.name).equals(name)) {
                         return glob.get(Mapping.renamed);
                     }
                 }
-                String def = annotation.get().get(defaultValue);
-                if (Strings.isNotEmpty(def)) {
-                    return def;
-                }
+            }
+            String def = annotation.get().get(defaultValue);
+            if (Strings.isNotEmpty(def)) {
+                return def;
             }
         }
         return field.getName();

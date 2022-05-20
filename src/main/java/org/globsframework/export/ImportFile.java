@@ -5,7 +5,10 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.ByteOrderMark;
 import org.apache.commons.io.input.BOMInputStream;
-import org.globsframework.export.annotation.*;
+import org.globsframework.export.annotation.CsvHeader;
+import org.globsframework.export.annotation.ExportDateFormat;
+import org.globsframework.export.annotation.ImportEmptyStringHasEmptyStringFormat;
+import org.globsframework.export.annotation.ReNamedExport;
 import org.globsframework.metamodel.Field;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.GlobTypeBuilder;
@@ -151,6 +154,14 @@ public class ImportFile {
 //                }
 //            }
         return s;
+    }
+
+    private static Field findField(GlobType globType, String key) {
+        Field field = GlobTypeUtils.findNamedField(globType, key);
+        if (field == null) {
+            LOGGER.warn("Field " + key + " ignored.");
+        }
+        return field;
     }
 
     public ImportFile withSeparator(char separator) {
@@ -322,7 +333,9 @@ public class ImportFile {
     }
 
     interface UpdateLine {
-        ImportReader getImporter();
+//        ImportReader getImporter();
+
+        Optional<Glob> read(CSVRecord record);
 
         String getMarkerName();
 
@@ -348,9 +361,9 @@ public class ImportFile {
     }
 
     static class DefaultDataRead implements DataRead {
+        private final String reNameFrom;
         private CSVParser parse;
         private boolean trim;
-        private final String reNameFrom;
         private int countLine = 0;
 
         public DefaultDataRead(CSVParser parse, boolean trim, String reNameFrom) {
@@ -372,26 +385,14 @@ public class ImportFile {
             return globTypeBuilder.get();
         }
 
-        static class RemapName {
-            public Map<String, Field> headNameToField = new HashMap<>();
-
-            RemapName(String name, GlobType type) {
-                Field[] fields = type.getFields();
-                for (Field field : fields) {
-                    String headerName = ReNamedExport.getHeaderName(name, field);
-                    headNameToField.put(headerName, field);
-                }
-            }
-        }
-
         public void read(Consumer<Glob> consumer, GlobType globType) {
             ImportReaderBuilder readerBuilder = new ImportReaderBuilder(globType, trim);
-            RemapName remapName = new RemapName(reNameFrom, globType);
+            RemapName remapName = new RemapName(globType, reNameFrom);
             Map<String, Integer> headerMap = parse.getHeaderMap();
             for (Map.Entry<String, Integer> stringIntegerEntry : headerMap.entrySet()) {
                 Field field = remapName.headNameToField.get(stringIntegerEntry.getKey());
                 if (field == null) {
-                    field = findField(globType, stringIntegerEntry);
+                    field = findField(globType, stringIntegerEntry.getKey());
                 }
                 if (field != null) {
                     readerBuilder.declare(field, stringIntegerEntry.getValue());
@@ -415,13 +416,18 @@ public class ImportFile {
             }
         }
 
-        private Field findField(GlobType globType, Map.Entry<String, Integer> stringIntegerEntry) {
-            Field field = GlobTypeUtils.findNamedField(globType, stringIntegerEntry.getKey());
-            if (field == null) {
-                LOGGER.warn("Field " + stringIntegerEntry.getKey() + " ignored.");
+        static class RemapName {
+            public Map<String, Field> headNameToField = new HashMap<>();
+
+            RemapName(GlobType type, String name) {
+                Field[] fields = type.getFields();
+                for (Field field : fields) {
+                    String headerName = ReNamedExport.getHeaderName(name, field);
+                    headNameToField.put(headerName, field);
+                }
             }
-            return field;
         }
+
     }
 
     static class ImportReaderBuilder {
@@ -721,17 +727,18 @@ public class ImportFile {
                         } else if (field instanceof GlobArrayField) {
                             lines.add(new MultiLineUpdateLine(field, annotation));
                         }
-
                     }
                 }
 
                 CSVParser parse = csvFormat.parse(reader);
                 Iterator<UpdateLine> first = lines.iterator();
                 UpdateLine current = first.next();
+                boolean push = false;
                 for (CSVRecord csvRecord : parse) {
                     String h = csvRecord.get(0);
                     while (!current.getMarkerName().equals(h)) {
                         if (!first.hasNext()) {
+                            push = true;
                             pushGlob(consumer, globType, lines);
                             first = lines.iterator();
                             current = first.next();
@@ -739,8 +746,11 @@ public class ImportFile {
                             current = first.next();
                         }
                     }
-                    if (!current.add(current.getImporter().read(csvRecord))) {
+                    Optional<Glob> readed = current.read(csvRecord);
+                    push &= !readed.isPresent();
+                    if (readed.isPresent() && !current.add(readed.get())) {
                         if (!first.hasNext()) {
+                            push = true;
                             pushGlob(consumer, globType, lines);
                             first = lines.iterator();
                             current = first.next();
@@ -749,7 +759,9 @@ public class ImportFile {
                         }
                     }
                 }
-                pushGlob(consumer, globType, lines);
+                if (!push) {
+                    pushGlob(consumer, globType, lines);
+                }
             } catch (Exception e) {
                 String msg = "error during parsing";
                 LOGGER.error(msg, e);
@@ -770,38 +782,66 @@ public class ImportFile {
             consumer.accept(res);
         }
 
-        private ImportReader initImportReader(GlobType targetType) {
-            ImportReaderBuilder importReaderBuilder = new ImportReaderBuilder(targetType, trim);
-            targetType.streamFields().forEach(new Consumer<>() {
-                int i = 0;
-
-                public void accept(Field f) {
-                    importReaderBuilder.declare(f, ++i);
+        private ImportReader initImportReader(GlobType targetType, Glob csvHeader, CSVRecord record) {
+            if (csvHeader.isTrue(CsvHeader.firstLineIsHeader)) {
+                ImportReaderBuilder readerBuilder = new ImportReaderBuilder(targetType, trim);
+                DefaultDataRead.RemapName remapName = new DefaultDataRead.RemapName(targetType, reNameFrom);
+                for (int i = 1; i < record.size(); i++) {
+                    String key = record.get(i);
+                    Field field = remapName.headNameToField.get(key);
+                    if (field == null) {
+                        field = findField(targetType, key);
+                    }
+                    if (field != null) {
+                        readerBuilder.declare(field, i);
+                    } else {
+                        LOGGER.warn(key + " not used got : " + Arrays.toString(targetType.getFields()));
+                    }
                 }
-            });
-            ImportReader build = importReaderBuilder.build();
-            return build;
+                return readerBuilder.build();
+            } else {
+                ImportReaderBuilder importReaderBuilder = new ImportReaderBuilder(targetType, trim);
+                targetType.streamFields().forEach(new Consumer<>() {
+                    int i = 0;
+
+                    public void accept(Field f) {
+                        importReaderBuilder.declare(f, ++i);
+                    }
+                });
+                ImportReader build = importReaderBuilder.build();
+                return build;
+            }
         }
 
         private class SingleUpdateLine implements UpdateLine {
-            final ImportReader importReaderBuilder;
             private final Field field;
-            private final Glob annotation;
+            private final Glob csvHeader;
+            private final GlobType targetType;
+            private final boolean csvHeaderTrue;
+            private boolean isFirst = true;
+            ImportReader importReaderBuilder;
             Glob got;
 
-            public SingleUpdateLine(Field field, Glob annotation) {
+            public SingleUpdateLine(Field field, Glob csvHeader) {
                 this.field = field;
-                this.annotation = annotation;
-                GlobType targetType = ((GlobField) field).getTargetType();
-                this.importReaderBuilder = initImportReader(targetType);
+                this.csvHeader = csvHeader;
+                targetType = ((GlobField) field).getTargetType();
+                csvHeaderTrue = csvHeader.isTrue(CsvHeader.firstLineIsHeader);
             }
 
-            public ImportReader getImporter() {
-                return importReaderBuilder;
+            public Optional<Glob> read(CSVRecord record) {
+                if (importReaderBuilder == null) {
+                    this.importReaderBuilder = initImportReader(targetType, csvHeader, record);
+                }
+                if (csvHeaderTrue && isFirst) {
+                    isFirst = false;
+                    return Optional.empty();
+                }
+                return Optional.of(importReaderBuilder.read(record));
             }
 
             public String getMarkerName() {
-                return annotation.get(CsvHeader.name);
+                return csvHeader.get(CsvHeader.name);
             }
 
             public boolean add(Glob glob) {
@@ -815,6 +855,7 @@ public class ImportFile {
             }
 
             public boolean updateAndReset(MutableGlob to) {
+                isFirst = true;
                 if (got != null) {
                     to.set(((GlobField) field), got);
                     got = null;
@@ -827,24 +868,34 @@ public class ImportFile {
 
         private class MultiLineUpdateLine implements UpdateLine {
             final List<Glob> gots;
-            final ImportReader importReaderBuilder;
             private final Field field;
-            private final Glob annotation;
+            private final Glob csvHeader;
+            private final GlobType targetType;
+            private final boolean csvHeaderTrue;
+            private boolean isFirst = true;
+            ImportReader importReaderBuilder;
 
-            public MultiLineUpdateLine(Field field, Glob annotation) {
+            public MultiLineUpdateLine(Field field, Glob csvHeader) {
                 this.field = field;
-                this.annotation = annotation;
+                this.csvHeader = csvHeader;
                 gots = new ArrayList<>();
-                GlobType targetType = ((GlobArrayField) field).getTargetType();
-                this.importReaderBuilder = initImportReader(targetType);
+                targetType = ((GlobArrayField) field).getTargetType();
+                csvHeaderTrue = csvHeader.isTrue(CsvHeader.firstLineIsHeader);
             }
 
-            public ImportReader getImporter() {
-                return importReaderBuilder;
+            public Optional<Glob> read(CSVRecord record) {
+                if (this.importReaderBuilder == null) {
+                    this.importReaderBuilder = initImportReader(targetType, csvHeader, record);
+                }
+                if (csvHeaderTrue && isFirst) {
+                    isFirst = false;
+                    return Optional.empty();
+                }
+                return Optional.of(importReaderBuilder.read(record));
             }
 
             public String getMarkerName() {
-                return annotation.get(CsvHeader.name);
+                return csvHeader.get(CsvHeader.name);
             }
 
             public boolean add(Glob glob) {
@@ -853,6 +904,7 @@ public class ImportFile {
             }
 
             public boolean updateAndReset(MutableGlob to) {
+                isFirst = true;
                 if (!gots.isEmpty()) {
                     to.set(((GlobArrayField) field), gots.toArray(Glob[]::new));
                     gots.clear();

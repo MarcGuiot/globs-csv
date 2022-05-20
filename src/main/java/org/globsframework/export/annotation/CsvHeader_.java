@@ -13,5 +13,11 @@ public @interface CsvHeader_ {
 
     String value();
 
+    boolean firstLineIsHeader() default false;
+
+//    boolean noHeader() default true;
+
+//    String[] header() default {};
+
     GlobType TYPE = CsvHeader.TYPE;
 }
