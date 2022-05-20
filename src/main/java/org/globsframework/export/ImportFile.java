@@ -267,6 +267,10 @@ public class ImportFile {
         return this;
     }
 
+    public Importer createMulti(InputStream inputStream, GlobType globType) throws IOException {
+        return createMulti(createReaderFromStream(inputStream), globType, List.of());
+    }
+
     public Importer createMulti(Reader reader, GlobType globType) {
         return createMulti(reader, globType, List.of());
     }
