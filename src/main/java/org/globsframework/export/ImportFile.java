@@ -410,7 +410,16 @@ public class ImportFile {
             try {
                 for (Iterator<CSVRecord> iterator = parse.iterator(); iterator.hasNext(); ) {
                     record = iterator.next();
-                    consumer.accept(build.read(record));
+                    boolean isEmpty = true;
+                    for (String s : record) {
+                        isEmpty &= Strings.isNullOrEmpty(s);
+                    }
+                    if (isEmpty) {
+                        LOGGER.warn("Empty Line ignored at " + countLine);
+                    }
+                    else {
+                        consumer.accept(build.read(record));
+                    }
                     countLine++;
                 }
             } catch (Exception exception) {

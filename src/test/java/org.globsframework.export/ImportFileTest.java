@@ -43,6 +43,7 @@ public class ImportFileTest {
                         "\"4  \",\"REF_4\"\n" +
                         "\"5  \",\"\"\n" +
                         "\"6  \",\n" +
+                        "\n" +
                         ""
         ), new Consumer<Glob>() {
             public void accept(Glob glob) {
