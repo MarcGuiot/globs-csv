@@ -5,6 +5,7 @@ import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.GlobTypeLoaderFactory;
 import org.globsframework.metamodel.annotations.Target;
 import org.globsframework.metamodel.fields.GlobArrayField;
+import org.globsframework.metamodel.fields.GlobField;
 import org.globsframework.metamodel.fields.StringField;
 import org.globsframework.model.Glob;
 import org.junit.Assert;
@@ -66,6 +67,52 @@ public class ImportStructuredCsv {
         Assert.assertEquals("d", fullFirstLine.get(L3.dd));
     }
 
+    @Test
+    public void simple() throws IOException {
+        String str = "a;b;c;d\n" +
+                "aa;bb;aa;d\n" +
+                "aa;cc;\n" +
+                "bbb;bb;\n";
+
+        List<Glob> l = new ArrayList<>();
+        Consumer<Glob> globConsumer = new Consumer<Glob>() {
+            public void accept(Glob glob) {
+                l.add(glob);
+            }
+        };
+
+        ImportFile.Importer importFile = new ImportFile().withSeparator(';')
+                .createComplex(new StringReader(str), SimpleL1.TYPE);
+        importFile.consume(globConsumer);
+        Assert.assertEquals(3, l.size());
+        Assert.assertEquals("aa", l.get(0).get(SimpleL1.l4).get(L4.c));
+        Assert.assertEquals("d", l.get(0).get(SimpleL1.l4).get(L4.d));
+    }
+
+    public static class SimpleL1 {
+        public static GlobType TYPE;
+
+        public static StringField a;
+        public static StringField b;
+
+        @Target(L4.class)
+        public static GlobField l4;
+
+        static {
+            GlobTypeLoaderFactory.create(SimpleL1.class).load();
+        }
+    }
+
+    public static class L4 {
+        public static GlobType TYPE;
+
+        public static StringField c;
+        public static StringField d;
+
+        static {
+            GlobTypeLoaderFactory.create(L4.class).load();
+        }
+    }
 
     public static class L1 {
         public static GlobType TYPE;
@@ -90,6 +137,7 @@ public class ImportStructuredCsv {
 
         @Target(L3.class)
         public static GlobArrayField l3;
+
 
         static {
             GlobTypeLoaderFactory.create(L2.class).load();

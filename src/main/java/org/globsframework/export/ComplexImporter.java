@@ -79,7 +79,7 @@ public class ComplexImporter {
         void reset();
     }
 
-    record Attr(GlobArrayField array, State state) {
+    record Attr(Field array, State state) {
     }
 
     record LineToTargetField(Field from, Field to) {
@@ -142,6 +142,8 @@ public class ComplexImporter {
                     }
                 } else if (toField instanceof GlobArrayField) {
                     attrs.add(new Attr((GlobArrayField) toField, build(((GlobArrayField) toField).getTargetType(), from)));
+                } else if (toField instanceof GlobField) {
+                    attrs.add(new Attr((GlobField) toField, build(((GlobField) toField).getTargetType(), from)));
                 } else {
                     throw new RuntimeException("Not managed");
                 }
@@ -162,11 +164,18 @@ public class ComplexImporter {
             for (Attr attr : attrs) {
                 Glob glob = attr.state.onNewLine(line);
                 if (glob != null) {
-                    Glob[] d = current.getOrEmpty(attr.array);
-                    d = Arrays.copyOf(d, d.length + 1);
-                    d[d.length - 1] = glob;
-                    current.set(attr.array, d);
-                    hasChange = true;
+                    if (attr.array instanceof GlobArrayField arrayField) {
+                        Glob[] d = current.getOrEmpty(arrayField);
+                        d = Arrays.copyOf(d, d.length + 1);
+                        d[d.length - 1] = glob;
+                        current.set(arrayField, d);
+                        hasChange = true;
+                    }
+                    else {
+                        GlobField field = (GlobField) attr.array;
+                        current.set(field, glob);
+                        hasChange = true;
+                    }
                 }
             }
 
