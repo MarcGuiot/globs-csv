@@ -6,6 +6,7 @@ import org.globsframework.metamodel.GlobTypeLoaderFactory;
 import org.globsframework.metamodel.annotations.Target;
 import org.globsframework.metamodel.fields.GlobArrayField;
 import org.globsframework.metamodel.fields.GlobField;
+import org.globsframework.metamodel.fields.IntegerField;
 import org.globsframework.metamodel.fields.StringField;
 import org.globsframework.model.Glob;
 import org.junit.Assert;
@@ -17,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-public class ImportStructuredCsv {
+public class ImportStructuredCsvTest {
 
     @Test
     public void name() throws IOException {
@@ -69,10 +70,10 @@ public class ImportStructuredCsv {
 
     @Test
     public void simple() throws IOException {
-        String str = "a;b;c;d\n" +
-                "aa;bb;aa;d\n" +
-                "aa;cc;\n" +
-                "bbb;bb;\n";
+        String str = "a;b;c;d;e\n" +
+                "aa;bb;aa;d;1\n" +
+                "aa;cc;2\n" +
+                "bbb;bb;;3\n";
 
         List<Glob> l = new ArrayList<>();
         Consumer<Glob> globConsumer = new Consumer<Glob>() {
@@ -107,7 +108,10 @@ public class ImportStructuredCsv {
         public static GlobType TYPE;
 
         public static StringField c;
+
         public static StringField d;
+
+        public static IntegerField e;
 
         static {
             GlobTypeLoaderFactory.create(L4.class).load();

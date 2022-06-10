@@ -1,19 +1,25 @@
 package org.globsframework.export;
 
+import org.globsframework.export.annotation.ExportDateFormat;
 import org.globsframework.metamodel.Field;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.GlobTypeBuilder;
-import org.globsframework.metamodel.fields.GlobArrayField;
-import org.globsframework.metamodel.fields.GlobField;
+import org.globsframework.metamodel.fields.*;
 import org.globsframework.model.Glob;
 import org.globsframework.model.MutableGlob;
+import org.globsframework.utils.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class ComplexImporter {
@@ -26,38 +32,6 @@ public class ComplexImporter {
 //        flat(builder, target);
         csvType = sourceType;
         this.target = target;
-    }
-
-
-    static class ConsumerWithCurrent implements Consumer<Glob>{
-        final Consumer<Glob> consumer;
-        private final State build;
-        private Glob current = null;
-        ConsumerWithCurrent(Consumer<Glob> consumer, State build) {
-            this.consumer = consumer;
-            this.build = build;
-        }
-
-        public void accept(Glob glob) {
-            Glob newGlob = build.onNewLine(glob);
-            if (newGlob != null) {
-                if (current != null) {
-                    consumer.accept(current);
-                }
-                current = newGlob;
-            }
-        }
-        void end(){
-            if (current != null) {
-                consumer.accept(current);
-                current = null;
-            }
-        }
-    }
-
-    ConsumerWithCurrent create(Consumer<Glob> consumer) {
-        State build = CompositeState.build(target, csvType);
-        return new ConsumerWithCurrent(consumer, build);
     }
 
     public static void flat(GlobTypeBuilder builder, GlobType type) {
@@ -73,28 +47,111 @@ public class ComplexImporter {
         }
     }
 
+    public static ConvertFromStr convert(Field field, boolean trim, boolean emptyIsNotNull) {
+        return field.safeVisit(new FieldVisitor.AbstractFieldVisitor() {
+            ConvertFromStr convert;
+
+            @Override
+            public void visitInteger(IntegerField field) throws Exception {
+                convert = new IntegerFieldReader(field);
+            }
+
+            @Override
+            public void visitDouble(DoubleField field) throws Exception {
+                convert = new DoubleFieldReader(field);
+            }
+
+            @Override
+            public void visitBigDecimal(BigDecimalField field) throws Exception {
+                convert = new BigDecimalFieldReader(field);
+            }
+
+            @Override
+            public void visitString(StringField field) throws Exception {
+                convert = new StringFieldReader(emptyIsNotNull, field, trim);
+            }
+
+            @Override
+            public void visitBoolean(BooleanField field) throws Exception {
+                convert = new BooleanFieldReader(field);
+            }
+
+            @Override
+            public void visitLong(LongField field) throws Exception {
+                convert = new LongFieldReader(field);
+            }
+
+            @Override
+            public void visitDate(DateField field) throws Exception {
+                convert = new DateFieldReader(field);
+            }
+
+            @Override
+            public void visitDateTime(DateTimeField field) throws Exception {
+                convert = new DateTimeFieldReader(field);
+            }
+        }).convert;
+    }
+
+    ConsumerWithCurrent create(Consumer<Glob> consumer) {
+        State build = CompositeState.build(target, csvType);
+        return new ConsumerWithCurrent(consumer, build);
+    }
+
     interface State {
         Glob onNewLine(Glob line);
 
         void reset();
     }
 
+    interface ConvertFromStr {
+        Object convert(String value);
+    }
+
+    static class ConsumerWithCurrent implements Consumer<Glob> {
+        final Consumer<Glob> consumer;
+        private final State build;
+        private Glob current = null;
+
+        ConsumerWithCurrent(Consumer<Glob> consumer, State build) {
+            this.consumer = consumer;
+            this.build = build;
+        }
+
+        public void accept(Glob glob) {
+            Glob newGlob = build.onNewLine(glob);
+            if (newGlob != null) {
+                if (current != null) {
+                    consumer.accept(current);
+                }
+                current = newGlob;
+            }
+        }
+
+        void end() {
+            if (current != null) {
+                consumer.accept(current);
+                current = null;
+            }
+        }
+    }
+
     record Attr(Field array, State state) {
     }
 
-    record LineToTargetField(Field from, Field to) {
+    record LineToTargetField(Field from, Field to, ConvertFromStr convert) {
     }
 
     static class FieldMapper {
         List<LineToTargetField> fields = new ArrayList<>();
 
-        void add(Field fromField, Field toField) {
-            fields.add(new LineToTargetField(fromField, toField));
+        void add(Field fromField, Field toField, ConvertFromStr convert) {
+            fields.add(new LineToTargetField(fromField, toField, convert));
         }
 
         boolean isSame(Glob current, Glob line) {
             for (LineToTargetField field : fields) {
-                if (!field.to.valueEqual(current.getValue(field.to), line.getValue(field.from))) {
+                if (!field.to.valueEqual(current.getValue(field.to), field.convert.convert((String) line.getValue(field.from)))) {
                     return false;
                 }
             }
@@ -107,12 +164,11 @@ public class ComplexImporter {
                 Object value = from.getValue(field.from);
                 if (value != null) {
                     hasChange = true;
-                    to.setValue(field.to, value);
+                    to.setValue(field.to, field.convert.convert((String) value));
                 }
             }
             return hasChange;
         }
-
     }
 
     static class CompositeState implements State {
@@ -135,15 +191,15 @@ public class ComplexImporter {
                 if (toField.getDataType().isPrimive()) {
                     Field fromField = from.findField(toField.getName());
                     if (fromField == null) {
-                        LOGGER.info("field " + toField.getName() +" not found in " + to.getName());
-                    }
-                    else {
-                        fieldMapper.add(fromField, toField);
+                        LOGGER.info("field " + toField.getName() + " not found in " + to.getName());
+                    } else {
+                        ConvertFromStr convert = convert(toField, true, true);
+                        fieldMapper.add(fromField, toField, convert);
                     }
                 } else if (toField instanceof GlobArrayField) {
-                    attrs.add(new Attr((GlobArrayField) toField, build(((GlobArrayField) toField).getTargetType(), from)));
+                    attrs.add(new Attr(toField, build(((GlobArrayField) toField).getTargetType(), from)));
                 } else if (toField instanceof GlobField) {
-                    attrs.add(new Attr((GlobField) toField, build(((GlobField) toField).getTargetType(), from)));
+                    attrs.add(new Attr(toField, build(((GlobField) toField).getTargetType(), from)));
                 } else {
                     throw new RuntimeException("Not managed");
                 }
@@ -170,8 +226,7 @@ public class ComplexImporter {
                         d[d.length - 1] = glob;
                         current.set(arrayField, d);
                         hasChange = true;
-                    }
-                    else {
+                    } else {
                         GlobField field = (GlobField) attr.array;
                         current.set(field, glob);
                         hasChange = true;
@@ -182,8 +237,7 @@ public class ComplexImporter {
             if (hasChange && !wasReturn) {
                 wasReturn = true;
                 return current;
-            }
-            else {
+            } else {
                 return null;
             }
         }
@@ -196,4 +250,170 @@ public class ComplexImporter {
         }
     }
 
+    static class IntegerFieldReader implements ConvertFromStr {
+        final IntegerField field;
+        private final Pattern removeZero;
+
+        IntegerFieldReader(IntegerField field) {
+            this.field = field;
+            removeZero = Pattern.compile("\\.0*$");
+        }
+
+        public Object convert(String s) {
+            if (Strings.isNotEmpty(s)) {
+                s = removeZero.matcher(s.trim()).replaceAll("");
+                return Integer.parseInt(s);
+            }
+            return null;
+        }
+    }
+
+    static class BooleanFieldReader implements ConvertFromStr {
+        final BooleanField field;
+
+        public BooleanFieldReader(BooleanField field) {
+            this.field = field;
+        }
+
+        public Object convert(String s) {
+            if (Strings.isNotEmpty(s)) {
+                return s.equalsIgnoreCase("true") || s.equalsIgnoreCase("1");
+            }
+            return null;
+        }
+    }
+
+    static class LongFieldReader implements ConvertFromStr {
+        final LongField field;
+        private final Pattern removeZero;
+
+        LongFieldReader(LongField field) {
+            this.field = field;
+            removeZero = Pattern.compile("\\.0*$");
+        }
+
+        public Object convert(String s) {
+            if (Strings.isNotEmpty(s)) {
+                s = removeZero.matcher(s.trim()).replaceAll("");
+                return Long.parseLong(s);
+            } else {
+                return null;
+            }
+        }
+    }
+
+    static class DateFieldReader implements ConvertFromStr {
+        final DateField field;
+        private DateTimeFormatter dateTimeFormatter;
+
+        DateFieldReader(DateField field) {
+            this.field = field;
+            Glob dataFormat = field.findAnnotation(ExportDateFormat.KEY);
+            if (dataFormat != null) {
+                String s = dataFormat.get(ExportDateFormat.FORMAT);
+                dateTimeFormatter = DateTimeFormatter.ofPattern(s);
+            } else {
+                dateTimeFormatter = DateTimeFormatter.ISO_DATE;
+            }
+        }
+
+        public Object convert(String s) {
+            if (Strings.isNotEmpty(s)) {
+                return LocalDate.from(dateTimeFormatter.parse(s.trim()));
+            } else {
+                return null;
+            }
+        }
+    }
+
+    static class DateTimeFieldReader implements ConvertFromStr {
+        final DateTimeField field;
+        private final ZoneId zoneId;
+        private DateTimeFormatter dateTimeFormatter;
+
+        DateTimeFieldReader(DateTimeField field) {
+            this.field = field;
+            Glob dataFormat = field.findAnnotation(ExportDateFormat.KEY);
+            if (dataFormat != null) {
+                String s = dataFormat.get(ExportDateFormat.FORMAT);
+                zoneId = ZoneId.of(dataFormat.get(ExportDateFormat.ZONE_ID, ZoneId.systemDefault().getId()));
+                dateTimeFormatter = DateTimeFormatter.ofPattern(s).withZone(zoneId);
+            } else {
+                zoneId = ZoneId.systemDefault();
+                dateTimeFormatter = DateTimeFormatter.ISO_DATE.withZone(zoneId);
+            }
+        }
+
+        public Object convert(String s) {
+            if (Strings.isNotEmpty(s)) {
+                TemporalAccessor temporalAccessor = dateTimeFormatter.parseBest(s.trim(), ZonedDateTime::from, LocalDateTime::from, LocalDate::from);
+                if (temporalAccessor instanceof ZonedDateTime) {
+                    return (ZonedDateTime) temporalAccessor;
+                } else if (temporalAccessor instanceof LocalDateTime) {
+                    return ((LocalDateTime) temporalAccessor).atZone(zoneId);
+                } else if (temporalAccessor instanceof LocalDate) {
+                    return ZonedDateTime.of((LocalDate) temporalAccessor, LocalTime.MIDNIGHT, zoneId);
+                } else {
+                    return null;
+                }
+            } else {
+                return null;
+            }
+        }
+    }
+
+    static class DoubleFieldReader implements ConvertFromStr {
+        final DoubleField field;
+
+        DoubleFieldReader(DoubleField field) {
+            this.field = field;
+        }
+
+        public Object convert(String s) {
+            if (Strings.isNotEmpty(s)) {
+                return Double.parseDouble(s.trim());
+            }
+            else {
+                return null;
+            }
+        }
+    }
+
+    static class StringFieldReader implements ConvertFromStr {
+        final boolean emptyIsNotNull;
+        final StringField field;
+        private boolean trim;
+
+        StringFieldReader(boolean emptyIsNotNull, StringField field, boolean trim) {
+            this.emptyIsNotNull = emptyIsNotNull;
+            this.field = field;
+            this.trim = trim;
+        }
+
+        public Object convert(String s) {
+            if (emptyIsNotNull || Strings.isNotEmpty(s)) {
+                return s;
+            }
+            else {
+                return null;
+            }
+        }
+    }
+
+    static class BigDecimalFieldReader implements ConvertFromStr {
+        final BigDecimalField field;
+
+        BigDecimalFieldReader(BigDecimalField field) {
+            this.field = field;
+        }
+
+        public Object convert(String s) {
+            if (Strings.isNotEmpty(s)) {
+                return new BigDecimal(s);
+            }
+            else {
+                return null;
+            }
+        }
+    }
 }
