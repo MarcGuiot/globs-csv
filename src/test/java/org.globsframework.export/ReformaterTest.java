@@ -39,11 +39,12 @@ public class ReformaterTest extends TestCase {
                                 })
                         )
 
-        ));
+        ), true);
 
         GlobType resultType = reformater.getResultType();
         StringField aa = resultType.getField("aa").asStringField();
         StringField ac = resultType.getField("ac").asStringField();
+        StringField a = resultType.getField("a").asStringField();
         Glob glob = reformater.transform(L1.TYPE.instantiate()
                 .set(L1.a, "aa-xx")
                 .set(L1.b, "bb")
@@ -51,6 +52,8 @@ public class ReformaterTest extends TestCase {
         );
         Assert.assertEquals("aa_xx", glob.get(aa));
         Assert.assertEquals("bb_bb_c", glob.get(ac));
+        Assert.assertEquals("bb_bb_c", glob.get(ac));
+        Assert.assertEquals("aa-xx", glob.get(a));
     }
 
     public static class L1 {

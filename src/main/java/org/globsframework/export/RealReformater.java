@@ -1,6 +1,7 @@
 package org.globsframework.export;
 
 import org.globsframework.export.model.FieldMappingType;
+import org.globsframework.metamodel.Field;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.fields.StringField;
 import org.globsframework.metamodel.impl.DefaultGlobTypeBuilder;
@@ -14,13 +15,32 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class RealReformater implements Reformater{
     private final List<Mapper> fieldMerger = new ArrayList<>();
     private final GlobType resultType;
 
     public RealReformater(GlobType fromType, List<Glob> fieldMapping) {
+       this(fromType, fieldMapping, false);
+    }
+    public RealReformater(GlobType fromType, List<Glob> fieldMapping, boolean addFromType) {
         DefaultGlobTypeBuilder outTypeBuilder = new DefaultGlobTypeBuilder("adapted");
+
+        if (addFromType) {
+            for (Field field : fromType.getFields()) {
+                Field newField = outTypeBuilder.declare(field.getName(), field.getDataType(), field.streamAnnotations().collect(Collectors.toList()));
+                fieldMerger.add(new Mapper() {
+                    @Override
+                    public void apply(Glob from, MutableGlob to) {
+                        if (from.isSet(field)){
+                            to.setValue(newField, from.getValue(field));
+                        }
+                    }
+                });
+            }
+        }
+
         for (Glob mapping : fieldMapping) {
             String fieldName = mapping.get(FieldMappingType.to);
             Glob from = mapping.get(FieldMappingType.from);
