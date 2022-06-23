@@ -26,16 +26,15 @@ public class ReformaterTest extends TestCase {
                         .set(FieldMappingType.to, "ac")
                         .set(FieldMappingType.from, FieldMappingType.TemplateType.TYPE.instantiate()
                                 .set(FieldMappingType.TemplateType.template, "{d}_{b}_{c}")
-                                .set(FieldMappingType.TemplateType.from, new Glob[]{FieldMappingType.RenamedType.TYPE.instantiate()
-                                        .set(FieldMappingType.RenamedType.renameTo, "d")
-                                        .set(FieldMappingType.RenamedType.from,
-                                        FieldMappingType.FromType.TYPE.instantiate().set(FieldMappingType.FromType.from, "b")),
+                                .set(FieldMappingType.TemplateType.from, new Glob[]{
+                                        FieldMappingType.RenamedType.TYPE.instantiate()
+                                                .set(FieldMappingType.RenamedType.renameTo, "d")
+                                                .set(FieldMappingType.RenamedType.from,
+                                                FieldMappingType.FromType.TYPE.instantiate()
+                                                        .set(FieldMappingType.FromType.from, "b")),
                                         FieldMappingType.RenamedType.TYPE.instantiate()
                                                 .set(FieldMappingType.RenamedType.from,
-                                                FieldMappingType.FromType.TYPE.instantiate().set(FieldMappingType.FromType.from, "b")),
-                                        FieldMappingType.RenamedType.TYPE.instantiate()
-                                                .set(FieldMappingType.RenamedType.from,
-                                                FieldMappingType.FromType.TYPE.instantiate().set(FieldMappingType.FromType.from, "c"))
+                                                FieldMappingType.FromType.TYPE.instantiate().set(FieldMappingType.FromType.from, "b"))
                                 })
                         )
 

@@ -73,8 +73,8 @@ public class RealReformater implements Reformater{
                                     buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater)))
                     );
                 }
-                Merger merger = new MergerTemplate(from.get(FieldMappingType.TemplateType.template),
-                        extractFields);
+                Merger merger =
+                        new MergerTemplate(fromType, from.get(FieldMappingType.TemplateType.template), extractFields);
                 fieldMerger.add(new Mapper() {
                                     public void apply(Glob from, MutableGlob to) {
                                         String res = merger.merge(from);
@@ -154,7 +154,7 @@ public class RealReformater implements Reformater{
     static class MergerTemplate implements Merger {
         private final List<Token> tokens = new ArrayList<>();
 
-        MergerTemplate(String template, Map<String, ExtractField> extractFields) {
+        MergerTemplate(GlobType fromType, String template, Map<String, ExtractField> extractFields) {
             Pattern pattern = Pattern.compile("\\{[^\\{\\}]*\\}");
             Matcher matcher = pattern.matcher(template);
             if (matcher.find()) {
@@ -166,7 +166,18 @@ public class RealReformater implements Reformater{
                     if (i < split.length && !split[i].isEmpty()) {
                         tokens.add(new StrToken(split[i]));
                     }
-                    tokens.add(new ExtractFieldToken(extractFields.get(name)));
+                    ExtractField extractField = extractFields.get(name);
+                    if (extractField == null) {
+                        Field orgField = fromType.findField(name);
+                        if (orgField == null) {
+                            throw new RuntimeException("field " + name + " not found in " + extractFields.keySet() +
+                                    " for template " + template + " and not in org type");
+                        }
+                        tokens.add(new FieldToken(orgField));
+                    }
+                    else {
+                        tokens.add(new ExtractFieldToken(extractField));
+                    }
                     i++;
                 }
                 while (matcher.find());
@@ -185,6 +196,19 @@ public class RealReformater implements Reformater{
 
         interface Token {
             String getToken(Glob from);
+        }
+
+        static class FieldToken implements Token {
+            private final Field field;
+
+            FieldToken(Field field) {
+                this.field = field;
+            }
+
+            public String getToken(Glob from) {
+                Object value = from.getValue(field);
+                return value == null ? "" : String.valueOf(value);
+            }
         }
 
         static class ExtractFieldToken implements Token {
