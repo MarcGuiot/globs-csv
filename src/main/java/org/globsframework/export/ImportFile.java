@@ -471,6 +471,10 @@ public class ImportFile {
                     fieldReaders.add(new StringFieldReader(field.hasAnnotation(ImportEmptyStringHasEmptyStringFormat.KEY), field, index, trim));
                 }
 
+                public void visitStringArray(StringArrayField field) throws Exception {
+                    fieldReaders.add(new StringArrayFieldReader(field, index, trim));
+                }
+
                 public void visitLong(LongField field) throws Exception {
                     fieldReaders.add(new LongFieldReader(field, index, trim));
                 }
@@ -666,11 +670,30 @@ public class ImportFile {
             this.trim = trim;
         }
 
-        @Override
         public void read(MutableGlob mutableGlob, CSVRecord record) {
             String s = getValue(record, index, trim);
             if (emptyIsNotNull || Strings.isNotEmpty(s)) {
-                mutableGlob.set(field, s);
+                mutableGlob.set(field, s == null ? "" : s);
+            }
+        }
+    }
+
+    static class StringArrayFieldReader implements FieldReader {
+        final StringArrayField field;
+        final int index;
+        private boolean trim;
+
+        StringArrayFieldReader(StringArrayField field, int index, boolean trim) {
+            this.field = field;
+            this.index = index;
+            this.trim = trim;
+        }
+
+        public void read(MutableGlob mutableGlob, CSVRecord record) {
+            String s = getValue(record, index, trim);
+            if (Strings.isNotEmpty(s)) {
+                String[] split = s.split(",");
+                mutableGlob.set(field, split);
             }
         }
     }
