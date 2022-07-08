@@ -42,6 +42,7 @@ public class ImportFile {
     private boolean trim;
     private String header;
     private List<Glob> transformer;
+    private boolean propagateInFields;
     private String reNameFrom;
     private Reformater reformater;
 
@@ -233,7 +234,7 @@ public class ImportFile {
                 globType = dataRead.createDefault();
             }
             if (transformer != null && !transformer.isEmpty()) {
-                reformater = new RealReformater(globType, transformer);
+                reformater = new RealReformater(globType, transformer, propagateInFields);
             } else {
                 reformater = new NullReformater(globType);
             }
@@ -262,8 +263,9 @@ public class ImportFile {
         };
     }
 
-    public ImportFile withTransformer(List<Glob> transformer) {
+    public ImportFile withTransformer(List<Glob> transformer, boolean propagateInFields) {
         this.transformer = transformer;
+        this.propagateInFields = propagateInFields;
         return this;
     }
 

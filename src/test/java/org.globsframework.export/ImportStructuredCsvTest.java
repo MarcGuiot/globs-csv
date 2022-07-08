@@ -52,7 +52,7 @@ public class ImportStructuredCsvTest {
                         .set(FieldMappingType.FromType.from, "dd"));
 
         ImportFile.Importer importFile = new ImportFile().withSeparator(';')
-                .withTransformer(List.of(a, b, c, d))
+                .withTransformer(List.of(a, b, c, d), false)
                 .createComplex(new StringReader(str), L1.TYPE);
         importFile.consume(globConsumer);
         Assert.assertEquals(2, l.size());
