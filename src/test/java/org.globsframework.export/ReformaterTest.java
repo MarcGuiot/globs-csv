@@ -36,7 +36,18 @@ public class ReformaterTest extends TestCase {
                                                 .set(FieldMappingType.RenamedType.from,
                                                 FieldMappingType.FromType.TYPE.instantiate().set(FieldMappingType.FromType.from, "b"))
                                 })
+                        ),
+                FieldMappingType.TYPE.instantiate()
+                        .set(FieldMappingType.to, "compute")
+                        .set(FieldMappingType.from, FieldMappingType.SumData.TYPE.instantiate()
+                                .set(FieldMappingType.SumData.from, new Glob[]{
+                                        FieldMappingType.FromType.TYPE.instantiate()
+                                                .set(FieldMappingType.FromType.from, "value1"),
+                                        FieldMappingType.FromType.TYPE.instantiate()
+                                                .set(FieldMappingType.FromType.from, "value2")
+                                })
                         )
+
 
         ), true);
 
@@ -44,15 +55,19 @@ public class ReformaterTest extends TestCase {
         StringField aa = resultType.getField("aa").asStringField();
         StringField ac = resultType.getField("ac").asStringField();
         StringField a = resultType.getField("a").asStringField();
+        StringField compute = resultType.getField("compute").asStringField();
         Glob glob = reformater.transform(L1.TYPE.instantiate()
                 .set(L1.a, "aa-xx")
                 .set(L1.b, "bb")
                 .set(L1.c, "c")
+                .set(L1.value1, "1.1")
+                .set(L1.value2, "2.04")
         );
         Assert.assertEquals("aa_xx", glob.get(aa));
         Assert.assertEquals("bb_bb_c", glob.get(ac));
         Assert.assertEquals("bb_bb_c", glob.get(ac));
         Assert.assertEquals("aa-xx", glob.get(a));
+        Assert.assertEquals("3.14", glob.get(compute));
     }
 
     public static class L1 {
@@ -63,6 +78,10 @@ public class ReformaterTest extends TestCase {
         public static StringField b;
 
         public static StringField c;
+
+        public static StringField value1;
+
+        public static StringField value2;
 
         static {
             GlobTypeLoaderFactory.create(L1.class).load();

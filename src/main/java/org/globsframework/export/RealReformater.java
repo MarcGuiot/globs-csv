@@ -17,13 +17,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-public class RealReformater implements Reformater{
+public class RealReformater implements Reformater {
     private final List<Mapper> fieldMerger = new ArrayList<>();
     private final GlobType resultType;
 
     public RealReformater(GlobType fromType, List<Glob> fieldMapping) {
-       this(fromType, fieldMapping, false);
+        this(fromType, fieldMapping, false);
     }
+
     public RealReformater(GlobType fromType, List<Glob> fieldMapping, boolean addFromType) {
         DefaultGlobTypeBuilder outTypeBuilder = new DefaultGlobTypeBuilder("adapted");
 
@@ -33,7 +34,7 @@ public class RealReformater implements Reformater{
                 fieldMerger.add(new Mapper() {
                     @Override
                     public void apply(Glob from, MutableGlob to) {
-                        if (from.isSet(field)){
+                        if (from.isSet(field)) {
                             to.setValue(newField, from.getValue(field));
                         }
                     }
@@ -51,14 +52,12 @@ public class RealReformater implements Reformater{
                                 from.get(FieldMappingType.FromType.defaultValueIfEmpty),
                                 buildFormater(from.getOrEmpty(FieldMappingType.FromType.formater)));
                 Merger merger = new FormatMerger(extractField);
-                fieldMerger.add(new Mapper() {
-                                    public void apply(Glob from, MutableGlob to) {
-                                        String res = merger.merge(from);
-                                        if (res != null) {
-                                            to.set(str, res);
-                                        }
-                                    }
-                                }
+                fieldMerger.add((input, to) -> {
+                            String res = merger.merge(input);
+                            if (res != null) {
+                                to.set(str, res);
+                            }
+                        }
                 );
             } else if (from.getType() == FieldMappingType.TemplateType.TYPE) {
                 Map<String, ExtractField> extractFields = new HashMap<>();
@@ -75,14 +74,30 @@ public class RealReformater implements Reformater{
                 }
                 Merger merger =
                         new MergerTemplate(fromType, from.get(FieldMappingType.TemplateType.template), extractFields);
-                fieldMerger.add(new Mapper() {
-                                    public void apply(Glob from, MutableGlob to) {
-                                        String res = merger.merge(from);
-                                        if (res != null) {
-                                            to.set(str, res);
-                                        }
-                                    }
-                                }
+                fieldMerger.add((input, to) -> {
+                            String res = merger.merge(input);
+                            if (res != null) {
+                                to.set(str, res);
+                            }
+                        }
+                );
+            } else if (from.getType() == FieldMappingType.SumData.TYPE) {
+                List<ExtractField> extractFields = new ArrayList<>();
+                for (Glob f : from.getOrEmpty(FieldMappingType.SumData.from)) {
+                    extractFields.add(
+                            new ExtractField(
+                                    fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
+                                    f.get(FieldMappingType.FromType.defaultValueIfEmpty),
+                                    buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater)))
+                    );
+                }
+                Merger merger = new SumDataOp(fromType, extractFields);
+                fieldMerger.add((input, to) -> {
+                            String res = merger.merge(input);
+                            if (res != null) {
+                                to.set(str, res);
+                            }
+                        }
                 );
             }
         }
@@ -174,8 +189,7 @@ public class RealReformater implements Reformater{
                                     " for template " + template + " and not in org type");
                         }
                         tokens.add(new FieldToken(orgField));
-                    }
-                    else {
+                    } else {
                         tokens.add(new ExtractFieldToken(extractField));
                     }
                     i++;
@@ -279,6 +293,25 @@ public class RealReformater implements Reformater{
             }
             str = formatter.format(str);
             return str;
+        }
+    }
+
+    private class SumDataOp implements Merger {
+        private final List<ExtractField> extractFields;
+
+        public SumDataOp(GlobType fromType, List<ExtractField> extractFields) {
+            this.extractFields = extractFields;
+        }
+
+        public String merge(Glob from) {
+            double total = 0;
+            for (ExtractField s : extractFields) {
+                String tr = s.tr(from);
+                if (Strings.isNotEmpty(tr)) {
+                    total += Double.parseDouble(tr);
+                }
+            }
+            return Double.toString(total);
         }
     }
 }

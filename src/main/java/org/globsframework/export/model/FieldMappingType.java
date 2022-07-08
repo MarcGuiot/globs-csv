@@ -12,7 +12,7 @@ import org.globsframework.metamodel.fields.StringField;
 public class FieldMappingType {
     public static GlobType TYPE;
 
-    @Targets({FromType.class, TemplateType.class})
+    @Targets({FromType.class, TemplateType.class, SumData.class})
     public static GlobUnionField from;
 
     public static StringField to;
@@ -21,6 +21,17 @@ public class FieldMappingType {
 
     static {
         GlobTypeLoaderFactory.create(FieldMappingType.class).load();
+    }
+
+    public static class SumData {
+        public static GlobType TYPE;
+
+        @Target(FromType.class)
+        public static GlobArrayField from;
+
+        static {
+            GlobTypeLoaderFactory.create(SumData.class).load();
+        }
     }
 
     public static class FromType {
