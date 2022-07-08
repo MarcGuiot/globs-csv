@@ -20,14 +20,22 @@ import java.util.stream.Collectors;
 public class RealReformater implements Reformater {
     private final List<Mapper> fieldMerger = new ArrayList<>();
     private final GlobType resultType;
+    private final Map<String, DataAccess> externalVariables = new HashMap<>();
+
 
     public RealReformater(GlobType fromType, List<Glob> fieldMapping) {
-        this(fromType, fieldMapping, false);
+        this(fromType, fieldMapping, false, null);
     }
 
     public RealReformater(GlobType fromType, List<Glob> fieldMapping, boolean addFromType) {
-        DefaultGlobTypeBuilder outTypeBuilder = new DefaultGlobTypeBuilder("adapted");
+        this(fromType, fieldMapping, addFromType, null);
+    }
 
+    public RealReformater(GlobType fromType, List<Glob> fieldMapping, boolean addFromType, Map<String, DataAccess> externalVariables) {
+        DefaultGlobTypeBuilder outTypeBuilder = new DefaultGlobTypeBuilder("adapted");
+        if (externalVariables != null) {
+            this.externalVariables.putAll(externalVariables);
+        }
         if (addFromType) {
             for (Field field : fromType.getFields()) {
                 Field newField = outTypeBuilder.declare(field.getName(), field.getDataType(), field.streamAnnotations().collect(Collectors.toList()));
@@ -73,7 +81,7 @@ public class RealReformater implements Reformater {
                     );
                 }
                 Merger merger =
-                        new MergerTemplate(fromType, from.get(FieldMappingType.TemplateType.template), extractFields);
+                        new MergerTemplate(fromType, from.get(FieldMappingType.TemplateType.template), extractFields, externalVariables);
                 fieldMerger.add((input, to) -> {
                             String res = merger.merge(input);
                             if (res != null) {
@@ -169,7 +177,7 @@ public class RealReformater implements Reformater {
     static class MergerTemplate implements Merger {
         private final List<Token> tokens = new ArrayList<>();
 
-        MergerTemplate(GlobType fromType, String template, Map<String, ExtractField> extractFields) {
+        MergerTemplate(GlobType fromType, String template, Map<String, ExtractField> extractFields, Map<String, DataAccess> externalVariables) {
             Pattern pattern = Pattern.compile("\\{[^\\{\\}]*\\}");
             Matcher matcher = pattern.matcher(template);
             if (matcher.find()) {
@@ -185,10 +193,16 @@ public class RealReformater implements Reformater {
                     if (extractField == null) {
                         Field orgField = fromType.findField(name);
                         if (orgField == null) {
-                            throw new RuntimeException("field " + name + " not found in " + extractFields.keySet() +
-                                    " for template " + template + " and not in org type");
+                            DataAccess dataAccess = externalVariables.get(name);
+                            if (dataAccess != null) {
+                                tokens.add(from -> dataAccess.get(name, from));
+                            } else {
+                                throw new RuntimeException("field " + name + " not found in " + extractFields.keySet() +
+                                        " for template " + template + " and not in org type");
+                            }
+                        } else {
+                            tokens.add(new FieldToken(orgField));
                         }
-                        tokens.add(new FieldToken(orgField));
                     } else {
                         tokens.add(new ExtractFieldToken(extractField));
                     }

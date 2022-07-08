@@ -43,6 +43,7 @@ public class ImportFile {
     private String header;
     private List<Glob> transformer;
     private boolean propagateInFields;
+    private Map<String, RealReformater.DataAccess> externalVariables;
     private String reNameFrom;
     private Reformater reformater;
 
@@ -234,7 +235,7 @@ public class ImportFile {
                 globType = dataRead.createDefault();
             }
             if (transformer != null && !transformer.isEmpty()) {
-                reformater = new RealReformater(globType, transformer, propagateInFields);
+                reformater = new RealReformater(globType, transformer, propagateInFields, externalVariables);
             } else {
                 reformater = new NullReformater(globType);
             }
@@ -268,6 +269,15 @@ public class ImportFile {
         this.propagateInFields = propagateInFields;
         return this;
     }
+
+    public ImportFile withTransformer(List<Glob> transformer, boolean propagateInFields,
+                                      Map<String, RealReformater.DataAccess> externalVariables) {
+        this.transformer = transformer;
+        this.propagateInFields = propagateInFields;
+        this.externalVariables = externalVariables;
+        return this;
+    }
+
 
     public Importer createMulti(InputStream inputStream, GlobType globType) throws IOException {
         return createMulti(createReaderFromStream(inputStream), globType, List.of());
