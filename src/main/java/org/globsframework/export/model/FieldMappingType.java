@@ -1,18 +1,16 @@
 package org.globsframework.export.model;
 
+import org.globsframework.json.annottations.IsJsonContentAnnotation;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.GlobTypeLoaderFactory;
 import org.globsframework.metamodel.annotations.Target;
 import org.globsframework.metamodel.annotations.Targets;
-import org.globsframework.metamodel.fields.GlobArrayField;
-import org.globsframework.metamodel.fields.GlobField;
-import org.globsframework.metamodel.fields.GlobUnionField;
-import org.globsframework.metamodel.fields.StringField;
+import org.globsframework.metamodel.fields.*;
 
 public class FieldMappingType {
     public static GlobType TYPE;
 
-    @Targets({FromType.class, TemplateType.class, SumData.class})
+    @Targets({FromType.class, TemplateType.class, SumData.class, OverrideData.class})
     public static GlobUnionField from;
 
     public static StringField to;
@@ -31,6 +29,22 @@ public class FieldMappingType {
 
         static {
             GlobTypeLoaderFactory.create(SumData.class).load();
+        }
+    }
+
+    public static class OverrideData {
+        public static GlobType TYPE;
+
+        public static StringField name;
+
+        @Target(FromType.class)
+        public static GlobArrayField inputField;
+
+        @IsJsonContentAnnotation
+        public static StringField additionalParams;
+
+        static {
+            GlobTypeLoaderFactory.create(OverrideData.class).load();
         }
     }
 

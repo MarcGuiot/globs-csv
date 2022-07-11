@@ -1,6 +1,7 @@
 package org.globsframework.export;
 
 import org.globsframework.export.model.FieldMappingType;
+import org.globsframework.json.GSonUtils;
 import org.globsframework.metamodel.Field;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.fields.StringField;
@@ -21,17 +22,19 @@ public class RealReformater implements Reformater {
     private final List<Mapper> fieldMerger = new ArrayList<>();
     private final GlobType resultType;
     private final Map<String, DataAccess> externalVariables = new HashMap<>();
-
+    private final CustomDataAccessFactory dataAccessFactory;
 
     public RealReformater(GlobType fromType, List<Glob> fieldMapping) {
-        this(fromType, fieldMapping, false, null);
+        this(fromType, fieldMapping, false, Map.of(), DefaultDataAccessFactory.DEFAULT);
     }
 
     public RealReformater(GlobType fromType, List<Glob> fieldMapping, boolean addFromType) {
-        this(fromType, fieldMapping, addFromType, null);
+        this(fromType, fieldMapping, addFromType, Map.of(), DefaultDataAccessFactory.DEFAULT);
     }
 
-    public RealReformater(GlobType fromType, List<Glob> fieldMapping, boolean addFromType, Map<String, DataAccess> externalVariables) {
+    public RealReformater(GlobType fromType, List<Glob> fieldMapping, boolean addFromType,
+                          Map<String, DataAccess> externalVariables, CustomDataAccessFactory dataAccessFactory) {
+        this.dataAccessFactory = dataAccessFactory;
         DefaultGlobTypeBuilder outTypeBuilder = new DefaultGlobTypeBuilder("adapted");
         if (externalVariables != null) {
             this.externalVariables.putAll(externalVariables);
@@ -81,7 +84,7 @@ public class RealReformater implements Reformater {
                     );
                 }
                 Merger merger =
-                        new MergerTemplate(fromType, from.get(FieldMappingType.TemplateType.template), extractFields, externalVariables);
+                        new MergerTemplate(fromType, from.get(FieldMappingType.TemplateType.template), extractFields, this.externalVariables);
                 fieldMerger.add((input, to) -> {
                             String res = merger.merge(input);
                             if (res != null) {
@@ -89,6 +92,30 @@ public class RealReformater implements Reformater {
                             }
                         }
                 );
+            } else if (from.getType() == FieldMappingType.OverrideData.TYPE) {
+                List<ExtractField> extractFields = new ArrayList<>();
+                for (Glob f : from.getOrEmpty(FieldMappingType.OverrideData.inputField)) {
+                    extractFields.add(
+                            new ExtractField(
+                                    fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
+                                    f.get(FieldMappingType.FromType.defaultValueIfEmpty),
+                                    buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater)))
+                    );
+                }
+
+                CustomDataAccess dataAccess = this.dataAccessFactory.create(fieldName, fromType,
+                        from.get(FieldMappingType.OverrideData.name),
+                        from.get(FieldMappingType.OverrideData.additionalParams));
+                fieldMerger.add((input, to) -> {
+                    List<String> data = new ArrayList<>(extractFields.size());
+                    for (ExtractField extractField : extractFields) {
+                        data.add(extractField.tr(input));
+                    }
+                    String res = dataAccess.get(fieldName, data, input);
+                    if (res != null) {
+                        to.set(str, res);
+                    }
+                });
             } else if (from.getType() == FieldMappingType.SumData.TYPE) {
                 List<ExtractField> extractFields = new ArrayList<>();
                 for (Glob f : from.getOrEmpty(FieldMappingType.SumData.from)) {
@@ -293,8 +320,7 @@ public class RealReformater implements Reformater {
         private final String defaultValue;
         private final Formatter formatter;
 
-        public ExtractField(StringField fromField, String defaultValue,
-                            Formatter formatter) {
+        public ExtractField(StringField fromField, String defaultValue, Formatter formatter) {
             this.formatter = formatter;
             this.fromField = fromField;
             this.defaultValue = defaultValue;
@@ -307,6 +333,17 @@ public class RealReformater implements Reformater {
             }
             str = formatter.format(str);
             return str;
+        }
+    }
+
+    public static class DefaultDataAccessFactory implements CustomDataAccessFactory {
+        public static CustomDataAccessFactory DEFAULT = new DefaultDataAccessFactory();
+        public CustomDataAccess create(String fieldName, GlobType lineType, String s, String from) {
+            return new CustomDataAccess() {
+                public String get(String fieldName, List<String> input, Glob data) {
+                    throw new RuntimeException("No factory for " + fieldName + " " + GSonUtils.encode(data, false));
+                }
+            };
         }
     }
 
