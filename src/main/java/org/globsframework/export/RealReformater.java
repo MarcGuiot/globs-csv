@@ -311,7 +311,7 @@ public class RealReformater implements Reformater {
             if (matcher.matches()) {
                 return matcher.replaceAll(result);
             }
-            throw new RuntimeException(value + " do not match.");
+            return value;
         }
     }
 
