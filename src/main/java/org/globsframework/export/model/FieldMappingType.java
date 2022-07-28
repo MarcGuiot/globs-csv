@@ -85,6 +85,8 @@ public class FieldMappingType {
 
         public static StringField template;
 
+        public static BooleanField noValueIfOnIsMissing;
+
         static {
             GlobTypeLoaderFactory.create(TemplateType.class).load();
         }

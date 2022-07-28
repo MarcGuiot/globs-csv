@@ -84,7 +84,8 @@ public class RealReformater implements Reformater {
                     );
                 }
                 Merger merger =
-                        new MergerTemplate(fromType, from.get(FieldMappingType.TemplateType.template), extractFields, this.externalVariables);
+                        new MergerTemplate(fromType, from.get(FieldMappingType.TemplateType.template), extractFields,
+                                this.externalVariables, from.isTrue(FieldMappingType.TemplateType.noValueIfOnIsMissing));
                 fieldMerger.add((input, to) -> {
                             String res = merger.merge(input);
                             if (res != null) {
@@ -202,9 +203,12 @@ public class RealReformater implements Reformater {
 
     //template format is {a}-{b} and {c}
     static class MergerTemplate implements Merger {
+        private final boolean noValueIfOneIsUnset;
         private final List<Token> tokens = new ArrayList<>();
 
-        MergerTemplate(GlobType fromType, String template, Map<String, ExtractField> extractFields, Map<String, DataAccess> externalVariables) {
+        MergerTemplate(GlobType fromType, String template, Map<String, ExtractField> extractFields,
+                       Map<String, DataAccess> externalVariables, boolean noValueIfOneIsUnset) {
+            this.noValueIfOneIsUnset = noValueIfOneIsUnset;
             Pattern pattern = Pattern.compile("\\{[^\\{\\}]*\\}");
             Matcher matcher = pattern.matcher(template);
             if (matcher.find()) {
@@ -244,7 +248,11 @@ public class RealReformater implements Reformater {
         public String merge(Glob from) {
             StringBuilder stringBuilder = new StringBuilder();
             for (Token token : tokens) {
-                stringBuilder.append(token.getToken(from));
+                String token1 = token.getToken(from);
+                if (Strings.isNullOrEmpty(token1) && noValueIfOneIsUnset) {
+                    return null;
+                }
+                stringBuilder.append(token1);
             }
             return stringBuilder.toString();
         }
