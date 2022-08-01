@@ -622,7 +622,9 @@ public class ExportBySize {
 
         public void append(String str) {
             try {
-                writer.append(str);
+                if (str != null) {
+                    writer.append(str);
+                }
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
