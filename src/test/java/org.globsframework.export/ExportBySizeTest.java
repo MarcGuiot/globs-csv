@@ -9,6 +9,7 @@ import org.globsframework.metamodel.annotations.TypedIsDate;
 import org.globsframework.metamodel.fields.*;
 import org.globsframework.model.Glob;
 import org.globsframework.model.MutableGlob;
+import org.globsframework.utils.Ref;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -16,11 +17,13 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.time.LocalDate;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 public class ExportBySizeTest {
 
@@ -69,6 +72,30 @@ public class ExportBySizeTest {
             assertEquals("some data 300   3235.14153  2018/01/022019/01/02\n", writer.getBuffer().toString());
         }
     }
+
+    @Test
+    public void escapeExportWithFirstEscapeChar() throws IOException {
+
+        MutableGlob data = Data.TYPE.instantiate().set(Data.NAME, "\"some\" data")
+                .set(Data.COUNT, 300);
+        {
+            StringWriter writer = new StringWriter();
+            ExportBySize exportBySize = new ExportBySize();
+            exportBySize.withSeparator(';');
+            exportBySize.export(Stream.of(data), writer);
+            assertEquals("\"\"\"some\"\" data\";300;;;\n", writer.getBuffer().toString());
+            ImportFile importFile = new ImportFile();
+            Ref<Glob> actual = new Ref<>();
+            importFile.withSeparator(';')
+                    .withHeader("name;count;")
+                    .create(new StringReader(writer.getBuffer().toString()), Data.TYPE)
+                    .consume(actual::set);
+            assertNotNull(actual.get());
+            assertEquals(actual.get().get(Data.NAME), "\"some\" data");
+        }
+
+    }
+
 
     @Test
     public void exportWithHeaderAndMultipleLines() {

@@ -396,6 +396,12 @@ public class ExportBySize {
                 }
                 value = exportBySize.escape + value + exportBySize.escape;
             }
+            else {
+                if (value.indexOf(exportBySize.escape) != -1) {
+                    value = value.replaceAll("" + exportBySize.escape, "" + exportBySize.escape + "" + exportBySize.escape);
+                    value = exportBySize.escape + value + exportBySize.escape;
+                }
+            }
             writer.append(padding.pad(value.replace("\n", "\\n")));
         }
     }
