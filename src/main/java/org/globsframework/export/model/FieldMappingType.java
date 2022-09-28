@@ -6,11 +6,12 @@ import org.globsframework.metamodel.GlobTypeLoaderFactory;
 import org.globsframework.metamodel.annotations.Target;
 import org.globsframework.metamodel.annotations.Targets;
 import org.globsframework.metamodel.fields.*;
+import org.globsframework.model.Glob;
 
 public class FieldMappingType {
     public static GlobType TYPE;
 
-    @Targets({FromType.class, TemplateType.class, SumData.class, OverrideData.class})
+    @Targets({FromType.class, TemplateType.class, SumData.class, OverrideData.class, MappingData.class})
     public static GlobUnionField from;
 
     public static StringField to;
@@ -105,6 +106,40 @@ public class FieldMappingType {
 
         static {
             GlobTypeLoaderFactory.create(FormatType.class).load();
+        }
+    }
+
+    public static class MappingData {
+        public static GlobType TYPE;
+
+        public static StringField mappingName;
+
+        @Target(FromType.class)
+        public static GlobField from;
+
+        public static BooleanField copyValueIfNoMapping;
+
+        @Target(KeyValue.class)
+        public static GlobArrayField mapping;
+
+        static {
+            GlobTypeLoaderFactory.create(MappingData.class).load();
+        }
+    }
+
+    public static class KeyValue {
+        public static GlobType TYPE;
+
+        public static StringField key;
+
+        public static StringField value;
+
+        public static Glob create(String key, String value) {
+            return TYPE.instantiate().set(KeyValue.key, key).set(KeyValue.value, value);
+        }
+
+        static {
+            GlobTypeLoaderFactory.create(KeyValue.class).load();
         }
     }
 }

@@ -10,10 +10,7 @@ import org.globsframework.model.Glob;
 import org.globsframework.model.MutableGlob;
 import org.globsframework.utils.Strings;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -117,6 +114,33 @@ public class RealReformater implements Reformater {
                         to.set(str, res);
                     }
                 });
+            } else if (from.getType() == FieldMappingType.MappingData.TYPE) {
+                final Glob f = from.get(FieldMappingType.MappingData.from);
+                ExtractField extractField =
+                        new ExtractField(fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
+                                f.get(FieldMappingType.FromType.defaultValueIfEmpty),
+                                buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater)));
+                final Glob[] data = from.getOrEmpty(FieldMappingType.MappingData.mapping);
+                Map<String, String> keyToValues = Arrays.stream(data).collect(Collectors.toMap(FieldMappingType.KeyValue.key, FieldMappingType.KeyValue.value));
+                if (from.isTrue(FieldMappingType.MappingData.copyValueIfNoMapping)) {
+                    fieldMerger.add((input, to) -> {
+                        final String tr = extractField.tr(input);
+                        if (tr != null) {
+                            final String newValue = keyToValues.get(tr);
+                            to.set(str, newValue != null ? newValue : tr);
+                        }
+                    });
+                } else {
+                    fieldMerger.add((input, to) -> {
+                        final String tr = extractField.tr(input);
+                        if (tr != null) {
+                            final String newValue = keyToValues.get(tr);
+                            if (newValue != null) {
+                                to.set(str, newValue);
+                            }
+                        }
+                    });
+                }
             } else if (from.getType() == FieldMappingType.SumData.TYPE) {
                 List<ExtractField> extractFields = new ArrayList<>();
                 for (Glob f : from.getOrEmpty(FieldMappingType.SumData.from)) {
