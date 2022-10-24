@@ -5,6 +5,7 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.ByteOrderMark;
 import org.apache.commons.io.input.BOMInputStream;
+import org.apache.poi.ss.usermodel.*;
 import org.globsframework.export.annotation.CsvHeader;
 import org.globsframework.export.annotation.ExportDateFormat;
 import org.globsframework.export.annotation.ImportEmptyStringHasEmptyStringFormat;
@@ -47,6 +48,7 @@ public class ImportFile {
     private Reformater.CustomDataAccessFactory dataAccessFactory;
     private String reNameFrom;
     private Reformater reformater;
+    private boolean isExcel;
 
     public static InputStreamReader createReaderWithBomCheck(InputStream inputStream, Charset defaultCharset) throws IOException {
         BOMInputStream in = new BOMInputStream(inputStream, ByteOrderMark.UTF_8, ByteOrderMark.UTF_16LE, ByteOrderMark.UTF_16BE,
@@ -143,19 +145,14 @@ public class ImportFile {
         return globTypeBuilder.get();
     }
 
-    private static String getValue(CSVRecord record, int index, boolean trim) {
+    private static String getValue(CsvLine record, int index, boolean trim) {
         if (index >= record.size()) {
             return null;
         }
-        String s = record.get(index);
+        String s = record.getAt(index);
         if (s != null) {
             return s.trim();
         }
-//            if (s.length() > 2) {
-//                if (s.startsWith("\"") && s.endsWith("\"")) {
-//                    return s.substring(1, s.length() - 1);
-//                }
-//            }
         return s;
     }
 
@@ -181,6 +178,11 @@ public class ImportFile {
 
     public ImportFile trim() {
         trim = true;
+        return this;
+    }
+
+    public ImportFile asExcel() {
+        isExcel = true;
         return this;
     }
 
@@ -228,9 +230,38 @@ public class ImportFile {
         return create(createReaderFromStream(inputStream), globType);
     }
 
+
+    interface CsvLine {
+        Date getAsDate(int index);
+
+        String getAt(int index);
+
+        int size();
+    }
+
+    interface CsvDocument {
+        Map<String, Integer> getHeader();
+
+        void read(Consumer<CsvLine> line, int maxFieldCount);
+    }
+
+
+    public Importer createExcel(InputStream inputStream, GlobType globType) throws IOException {
+        final DefaultDataRead dataRead = new DefaultDataRead(loadExcel(inputStream), trim, reNameFrom);
+        if (globType == null) {
+            globType = dataRead.createDefault();
+        }
+        if (transformer != null && !transformer.isEmpty()) {
+            reformater = new RealReformater(globType, transformer, propagateInFields, externalVariables, dataAccessFactory);
+        } else {
+            reformater = new NullReformater(globType);
+        }
+        return new DefaultImporter(globType, dataRead, reformater);
+    }
+
     public Importer create(Reader reader, GlobType globType) throws IOException {
         if (withSeparator) {
-            CSVParser parse = load(reader);
+            CsvDocument parse = load(reader);
             DefaultDataRead dataRead = new DefaultDataRead(parse, trim, reNameFrom);
             if (globType == null) {
                 globType = dataRead.createDefault();
@@ -265,6 +296,25 @@ public class ImportFile {
         };
     }
 
+    public Importer createComplexExcel(InputStream reader, GlobType type) throws IOException {
+        Importer importer = createExcel(reader, null);
+
+        ComplexImporter complexImporter = new ComplexImporter(reformater.getResultType(), type);
+
+        return new Importer() {
+            public GlobType getType() {
+                return type;
+            }
+
+            public <T extends Consumer<Glob>> T consume(T consumer) {
+                ComplexImporter.ConsumerWithCurrent globConsumer = complexImporter.create(consumer);
+                importer.consume(globConsumer);
+                globConsumer.end();
+                return consumer;
+            }
+        };
+    }
+
     public ImportFile withTransformer(List<Glob> transformer, boolean propagateInFields) {
         this.transformer = transformer;
         this.propagateInFields = propagateInFields;
@@ -281,6 +331,25 @@ public class ImportFile {
         return this;
     }
 
+    public Importer createMultiExcel(InputStream inputStream, GlobType globType, List<Glob> transformer) {
+        if (globType == null) {
+            throw new RuntimeException("Missing type");
+        }
+        final Workbook sheets;
+        try {
+            sheets = WorkbookFactory.create(inputStream);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        final ExcelDocument excelDocument = new ExcelDocument(sheets.getSheetAt(0), Map.of());
+        excelDocument.skipFirstLine(false);
+        DataRead dataRead = new MultiTypeDataRead(excelDocument);
+
+        Reformater reformater = transformer == null || transformer.isEmpty() ? new NullReformater(globType) : new RealReformater(globType, transformer);
+        return new DefaultImporter(globType, dataRead, reformater);
+    }
+
+
     public Importer createMulti(InputStream inputStream, GlobType globType) throws IOException {
         return createMulti(createReaderFromStream(inputStream), globType, List.of());
     }
@@ -294,15 +363,20 @@ public class ImportFile {
             if (globType == null) {
                 throw new RuntimeException("Missing type");
             }
-            CSVFormat csvFormat =
-                    CSVFormat.DEFAULT
-                            .withDelimiter(separator)
-                            .withEscape('\\')
-                            .withQuote(quoteChar);
-            DataRead dataRead = new MultiTypeDataRead(csvFormat, reader);
+            CSVFormat.Builder csvFormatBuilder =
+                    CSVFormat.Builder.create(CSVFormat.DEFAULT)
+                            .setDelimiter(separator)
+                            .setEscape('\\')
+                            .setQuote(quoteChar);
+            try {
+                CsvDocument csvDocument = new CsvDocumentFromCSVParse(csvFormatBuilder.build().parse(reader));
+                DataRead dataRead = new MultiTypeDataRead(csvDocument);
 
-            Reformater reformater = transformer == null || transformer.isEmpty() ? new NullReformater(globType) : new RealReformater(globType, transformer);
-            return new DefaultImporter(globType, dataRead, reformater);
+                Reformater reformater = transformer == null || transformer.isEmpty() ? new NullReformater(globType) : new RealReformater(globType, transformer);
+                return new DefaultImporter(globType, dataRead, reformater);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         } else {
             throw new RuntimeException("Not implemented");
         }
@@ -321,16 +395,64 @@ public class ImportFile {
         create(reader, globType).consume(consumer);
     }
 
+    public void importContentExcel(InputStream inputStream, Consumer<Glob> consumer, GlobType globType) throws IOException {
+        createExcel(inputStream, globType).consume(consumer);
+    }
+
     public DataRead getDataReader(InputStream inputStream) throws IOException {
         return new DefaultDataRead(load(createReaderFromStream(inputStream)), trim, reNameFrom);
     }
 
-    private CSVParser load(Reader reader) throws IOException {
-        CSVFormat csvFormat =
-                CSVFormat.DEFAULT
-                        .withDelimiter(separator)
-                        .withEscape('\\')
-                        .withQuote(quoteChar);
+    private CsvDocument loadExcel(InputStream inputStream) {
+        final Workbook sheets;
+        try {
+            sheets = WorkbookFactory.create(inputStream);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        boolean skipFirstLine;
+        Sheet sheet = sheets.getSheetAt(0);
+        Map<String, Integer> headers = new LinkedHashMap<>();
+        if (header == null) {
+            final Row row = sheet.getRow(0);
+            if (row == null) {
+                throw new RuntimeException("Fail to extract header");
+            }
+            int i = 0;
+            while (true) {
+                final Cell cell = row.getCell(i);
+                if (cell != null) {
+                    headers.put(cell.getStringCellValue(), i);
+                } else {
+                    break;
+                }
+                i++;
+            }
+            skipFirstLine = true;
+        }
+        else {
+            skipFirstLine = false;
+            StringBuilder current = new StringBuilder();
+            for (char c : header.toCharArray()) {
+                if (c == separator) {
+                    headers.put(current.toString(), headers.size());
+                    current = new StringBuilder();
+                } else {
+                    current.append(c);
+                }
+            }
+        }
+        final ExcelDocument excelDocument = new ExcelDocument(sheet, headers);
+        excelDocument.skipFirstLine(skipFirstLine);
+        return excelDocument;
+    }
+
+    private CsvDocument load(Reader reader) throws IOException {
+        CSVFormat.Builder csvFormatBuilder =
+                CSVFormat.Builder.create(CSVFormat.DEFAULT)
+                        .setDelimiter(separator)
+                        .setEscape('\\')
+                        .setQuote(quoteChar);
         if (header != null) {
             List<String> elements = new ArrayList<>();
             StringBuilder current = new StringBuilder();
@@ -343,17 +465,21 @@ public class ImportFile {
                 }
             }
             elements.add(current.toString());
-            csvFormat = csvFormat.withHeader(elements.toArray(new String[0]));
+            csvFormatBuilder.setSkipHeaderRecord(false);
+            csvFormatBuilder.setAllowMissingColumnNames(true);
+            csvFormatBuilder.setHeader(elements.toArray(new String[0]));
         } else {
-            csvFormat = csvFormat.withFirstRecordAsHeader();
+            csvFormatBuilder.setHeader(); //to force read header from file
         }
-        return csvFormat.parse(reader);
+        final CSVParser parse = csvFormatBuilder.build().parse(reader);
+        return new CsvDocumentFromCSVParse(parse);
+
     }
 
     interface UpdateLine {
 //        ImportReader getImporter();
 
-        Optional<Glob> read(CSVRecord record);
+        Optional<Glob> read(CsvLine record);
 
         String getMarkerName();
 
@@ -375,28 +501,24 @@ public class ImportFile {
     }
 
     interface FieldReader {
-        void read(MutableGlob mutableGlob, CSVRecord record);
+        void read(MutableGlob mutableGlob, CsvLine record);
     }
 
     static class DefaultDataRead implements DataRead {
         private final String reNameFrom;
-        private CSVParser parse;
+        private CsvDocument parse;
         private boolean trim;
         private int countLine = 0;
 
-        public DefaultDataRead(CSVParser parse, boolean trim, String reNameFrom) {
+        public DefaultDataRead(CsvDocument parse, boolean trim, String reNameFrom) {
             this.parse = parse;
             this.trim = trim;
             this.reNameFrom = reNameFrom;
         }
 
-        public Map<String, Integer> getHeader() {
-            return parse.getHeaderMap();
-        }
-
         GlobType createDefault() {
             GlobTypeBuilder globTypeBuilder = new DefaultGlobTypeBuilder("DefaultCsv");
-            Map<String, Integer> headerMap = parse.getHeaderMap();
+            Map<String, Integer> headerMap = parse.getHeader();
             for (String s1 : headerMap.keySet()) {
                 globTypeBuilder.declareStringField(s1);
             }
@@ -404,9 +526,9 @@ public class ImportFile {
         }
 
         public void read(Consumer<Glob> consumer, GlobType globType) {
-            ImportReaderBuilder readerBuilder = new ImportReaderBuilder(globType, trim);
+            ImportReaderBuilder readerBuilder = new ImportReaderBuilder(globType, trim, parse);
             RemapName remapName = new RemapName(globType, reNameFrom);
-            Map<String, Integer> headerMap = parse.getHeaderMap();
+            Map<String, Integer> headerMap = parse.getHeader();
             for (Map.Entry<String, Integer> stringIntegerEntry : headerMap.entrySet()) {
                 Field field = remapName.headNameToField.get(stringIntegerEntry.getKey());
                 if (field == null) {
@@ -420,27 +542,18 @@ public class ImportFile {
             }
             countLine += 2; // un pour le header et un pour la ligne a lire
             ImportReader build = readerBuilder.build();
-            CSVRecord record = null;
-            try {
-                for (Iterator<CSVRecord> iterator = parse.iterator(); iterator.hasNext(); ) {
-                    record = iterator.next();
-                    boolean isEmpty = true;
-                    for (String s : record) {
-                        isEmpty &= Strings.isNullOrEmpty(s);
-                    }
-                    if (isEmpty) {
-                        LOGGER.warn("Empty Line ignored at " + countLine);
-                    }
-                    else {
-                        consumer.accept(build.read(record));
-                    }
+
+            parse.read(record -> {
+                try {
+                    consumer.accept(build.read(record));
                     countLine++;
+                } catch (Exception exception) {
+                    String message = "Fail to read line : " + countLine + " : " + (record != null ? record.toString() : "");
+                    LOGGER.error(message, exception);
+                    throw new RuntimeException(message, exception);
                 }
-            } catch (Exception exception) {
-                String message = "Fail to read line : " + countLine + " : " + (record != null ? record.toString() : "");
-                LOGGER.error(message, exception);
-                throw new RuntimeException(message, exception);
-            }
+            }, 0);
+
         }
 
         static class RemapName {
@@ -461,10 +574,12 @@ public class ImportFile {
         private final GlobType type;
         private List<FieldReader> fieldReaders = new ArrayList<>();
         private boolean trim;
+        private CsvDocument csvDocument;
 
-        ImportReaderBuilder(GlobType type, boolean trim) {
+        ImportReaderBuilder(GlobType type, boolean trim, CsvDocument csvDocument) {
             this.type = type;
             this.trim = trim;
+            this.csvDocument = csvDocument;
         }
 
         public void declare(Field field, Integer index) {
@@ -517,7 +632,7 @@ public class ImportFile {
             this.type = type;
         }
 
-        Glob read(CSVRecord record) {
+        Glob read(CsvLine record) {
             MutableGlob instantiate = type.instantiate();
             for (FieldReader fieldReader : fieldReaders) {
                 fieldReader.read(instantiate, record);
@@ -539,7 +654,7 @@ public class ImportFile {
             removeZero = Pattern.compile("\\.0*$");
         }
 
-        public void read(MutableGlob mutableGlob, CSVRecord record) {
+        public void read(MutableGlob mutableGlob, CsvLine record) {
             String s = getValue(record, index, trim);
             if (Strings.isNotEmpty(s)) {
                 s = removeZero.matcher(s.trim()).replaceAll("");
@@ -557,7 +672,7 @@ public class ImportFile {
             this.index = index;
         }
 
-        public void read(MutableGlob mutableGlob, CSVRecord record) {
+        public void read(MutableGlob mutableGlob, CsvLine record) {
             String s = getValue(record, index, true);
             if (Strings.isNotEmpty(s)) {
                 mutableGlob.set(field, s.equalsIgnoreCase("true") || s.equalsIgnoreCase("1"));
@@ -578,7 +693,7 @@ public class ImportFile {
             removeZero = Pattern.compile("\\.0*$");
         }
 
-        public void read(MutableGlob mutableGlob, CSVRecord record) {
+        public void read(MutableGlob mutableGlob, CsvLine record) {
             String s = getValue(record, index, trim);
             if (Strings.isNotEmpty(s)) {
                 s = removeZero.matcher(s.trim()).replaceAll("");
@@ -606,10 +721,16 @@ public class ImportFile {
             }
         }
 
-        public void read(MutableGlob mutableGlob, CSVRecord record) {
-            String s = getValue(record, index, trim);
-            if (Strings.isNotEmpty(s)) {
-                mutableGlob.set(field, LocalDate.from(dateTimeFormatter.parse(s.trim())));
+        public void read(MutableGlob mutableGlob, CsvLine record) {
+            final Date date = record.getAsDate(index);
+            if (date != null) {
+                mutableGlob.set(field, LocalDate.ofInstant(date.toInstant(), ZoneId.systemDefault()));
+            }
+            else {
+                String s = getValue(record, index, trim);
+                if (Strings.isNotEmpty(s)) {
+                    mutableGlob.set(field, LocalDate.from(dateTimeFormatter.parse(s.trim())));
+                }
             }
         }
     }
@@ -636,16 +757,22 @@ public class ImportFile {
             }
         }
 
-        public void read(MutableGlob mutableGlob, CSVRecord record) {
-            String s = getValue(record, index, trim);
-            if (Strings.isNotEmpty(s)) {
-                TemporalAccessor temporalAccessor = dateTimeFormatter.parseBest(s.trim(), ZonedDateTime::from, LocalDateTime::from, LocalDate::from);
-                if (temporalAccessor instanceof ZonedDateTime) {
-                    mutableGlob.set(field, (ZonedDateTime) temporalAccessor);
-                } else if (temporalAccessor instanceof LocalDateTime) {
-                    mutableGlob.set(field, ((LocalDateTime) temporalAccessor).atZone(zoneId));
-                } else if (temporalAccessor instanceof LocalDate) {
-                    mutableGlob.set(field, ZonedDateTime.of((LocalDate) temporalAccessor, LocalTime.MIDNIGHT, zoneId));
+        public void read(MutableGlob mutableGlob, CsvLine record) {
+            final Date date = record.getAsDate(index);
+            if (date != null) {
+                mutableGlob.set(field, ZonedDateTime.ofInstant(date.toInstant(), zoneId));
+            }
+            else {
+                String s = getValue(record, index, trim);
+                if (Strings.isNotEmpty(s)) {
+                    TemporalAccessor temporalAccessor = dateTimeFormatter.parseBest(s.trim(), ZonedDateTime::from, LocalDateTime::from, LocalDate::from);
+                    if (temporalAccessor instanceof ZonedDateTime) {
+                        mutableGlob.set(field, (ZonedDateTime) temporalAccessor);
+                    } else if (temporalAccessor instanceof LocalDateTime) {
+                        mutableGlob.set(field, ((LocalDateTime) temporalAccessor).atZone(zoneId));
+                    } else if (temporalAccessor instanceof LocalDate) {
+                        mutableGlob.set(field, ZonedDateTime.of((LocalDate) temporalAccessor, LocalTime.MIDNIGHT, zoneId));
+                    }
                 }
             }
         }
@@ -663,7 +790,7 @@ public class ImportFile {
         }
 
         @Override
-        public void read(MutableGlob mutableGlob, CSVRecord record) {
+        public void read(MutableGlob mutableGlob, CsvLine record) {
             String s = getValue(record, index, trim);
             if (Strings.isNotEmpty(s)) {
                 mutableGlob.set(field, Double.parseDouble(s.trim()));
@@ -684,7 +811,7 @@ public class ImportFile {
             this.trim = trim;
         }
 
-        public void read(MutableGlob mutableGlob, CSVRecord record) {
+        public void read(MutableGlob mutableGlob, CsvLine record) {
             String s = getValue(record, index, trim);
             if (emptyIsNotNull || Strings.isNotEmpty(s)) {
                 mutableGlob.set(field, s == null ? "" : s);
@@ -703,7 +830,7 @@ public class ImportFile {
             this.trim = trim;
         }
 
-        public void read(MutableGlob mutableGlob, CSVRecord record) {
+        public void read(MutableGlob mutableGlob, CsvLine record) {
             String s = getValue(record, index, trim);
             if (Strings.isNotEmpty(s)) {
                 String[] split = s.split(",");
@@ -753,16 +880,130 @@ public class ImportFile {
         }
     }
 
-    private class MultiTypeDataRead implements DataRead {
-        private final CSVFormat csvFormat;
-        private final Reader reader;
+    private static class CsvDocumentFromCSVParse implements CsvDocument {
+        private final CSVParser parse;
 
-        public MultiTypeDataRead(CSVFormat csvFormat, Reader reader) {
-            this.csvFormat = csvFormat;
-            this.reader = reader;
+        public CsvDocumentFromCSVParse(CSVParser parse) {
+            this.parse = parse;
+        }
+
+        public Map<String, Integer> getHeader() {
+            return parse.getHeaderMap();
+        }
+
+        public void read(Consumer<CsvLine> line, int maxFieldCount) {
+            for (CSVRecord strings : parse) {
+                boolean isValide = false;
+                for (String string : strings) {
+                    isValide |= Strings.isNotEmpty(string);
+                }
+                if (isValide) {
+                    line.accept(new CsvLine() {
+                        public Date getAsDate(int index) {
+                            return null;
+                        }
+
+                        public String getAt(int index) {
+                            return strings.get(index);
+                        }
+
+                        public int size() {
+                            return strings.size();
+                        }
+
+                    });
+                }
+                else {
+                    LOGGER.info("Ignore empty line");
+                }
+            }
+        }
+    }
+
+    private static class ExcelDocument implements CsvDocument {
+        private Sheet sheet;
+        private final Map<String, Integer> headers;
+        private boolean skipFirstLine;
+
+        public ExcelDocument(Sheet sheet, Map<String, Integer> headers) {
+            this.sheet = sheet;
+            this.headers = headers;
+        }
+
+        public Map<String, Integer> getHeader() {
+            return headers;
+        }
+
+        void skipFirstLine(boolean skipFirstLine){
+            this.skipFirstLine = skipFirstLine;
+        }
+
+        public void read(Consumer<CsvLine> line, int maxFieldCount) {
+            int currentPos = skipFirstLine ? 0 : -1;
+            final int maxSize = Math.max(maxFieldCount, headers.size());
+            Map<Integer, Cell> realLine = new LinkedHashMap<>();
+            while (true) {
+                currentPos++;
+                realLine.clear();
+                boolean hasAValue = false;
+                final Row row = sheet.getRow(currentPos);
+                if (row == null) {
+                    return;
+                }
+                for (int i = 0; i < maxSize; i++) {
+                    final Cell cell = row.getCell(i);
+                    realLine.put(i, cell);
+                    hasAValue |= cell != null;
+                }
+                if (!hasAValue) {
+                    return;
+                }
+                line.accept(new CsvLine() {
+                    public Date getAsDate(int index) {
+                        final Cell cell = realLine.get(index);
+                        if (cell != null) {
+                            return switch (cell.getCellType()) {
+                                case _NONE, BLANK, STRING, FORMULA, BOOLEAN, ERROR -> null;
+                                case NUMERIC -> cell.getDateCellValue();
+                            };
+                        }
+                        return null;
+                    }
+
+                    public String getAt(int index) {
+                        final Cell cell = realLine.get(index);
+                        if (cell != null) {
+                            final String str = switch (cell.getCellType()) {
+                                case _NONE, BLANK -> null;
+                                case NUMERIC -> Double.toString(cell.getNumericCellValue());
+                                case STRING -> cell.getStringCellValue();
+                                case FORMULA -> throw new RuntimeException("Formula not allowed");
+                                case BOOLEAN -> cell.getBooleanCellValue() ? "true" : "false";
+                                case ERROR -> throw new RuntimeException("Formula not allowed");
+                            };
+                            return str;
+                        }
+                        return null;
+                    }
+
+                    public int size() {
+                        return maxSize;
+                    }
+                });
+            }
+        }
+    }
+
+    private class MultiTypeDataRead implements DataRead {
+
+        private CsvDocument csvDocument;
+
+        public MultiTypeDataRead(CsvDocument csvDocument) {
+            this.csvDocument = csvDocument;
         }
 
         public void read(Consumer<Glob> consumer, GlobType globType) {
+            int maxFieldCount = 0;
             try {
                 Field[] fields = globType.getFields();
                 List<UpdateLine> lines = new ArrayList<>();
@@ -771,44 +1012,19 @@ public class ImportFile {
                     if (annotation != null) {
                         if (field instanceof GlobField) {
                             lines.add(new SingleUpdateLine(field, annotation));
+                            maxFieldCount = Math.max(maxFieldCount, ((GlobField) field).getTargetType().getFieldCount() + 1);
                         } else if (field instanceof GlobArrayField) {
                             lines.add(new MultiLineUpdateLine(field, annotation));
+                            maxFieldCount = Math.max(maxFieldCount, ((GlobArrayField) field).getTargetType().getFieldCount() + 1);
                         }
                     }
                 }
 
-                CSVParser parse = csvFormat.parse(reader);
                 Iterator<UpdateLine> first = lines.iterator();
-                UpdateLine current = first.next();
-                boolean push = false;
-                for (CSVRecord csvRecord : parse) {
-                    String h = csvRecord.get(0);
-                    while (!current.getMarkerName().equals(h)) {
-                        if (!first.hasNext()) {
-                            push = true;
-                            pushGlob(consumer, globType, lines);
-                            first = lines.iterator();
-                            current = first.next();
-                        } else {
-                            current = first.next();
-                        }
-                    }
-                    Optional<Glob> readed = current.read(csvRecord);
-                    push &= !readed.isPresent();
-                    if (readed.isPresent() && !current.add(readed.get())) {
-                        if (!first.hasNext()) {
-                            push = true;
-                            pushGlob(consumer, globType, lines);
-                            first = lines.iterator();
-                            current = first.next();
-                        } else {
-                            current = first.next();
-                        }
-                    }
-                }
-                if (!push) {
-                    pushGlob(consumer, globType, lines);
-                }
+                final CsvLineConsumer line = new CsvLineConsumer(first, consumer, globType, lines);
+                csvDocument.read(line, maxFieldCount);
+                line.complete();
+
             } catch (Exception e) {
                 String msg = "error during parsing";
                 LOGGER.error(msg, e);
@@ -829,12 +1045,12 @@ public class ImportFile {
             consumer.accept(res);
         }
 
-        private ImportReader initImportReader(GlobType targetType, Glob csvHeader, CSVRecord record) {
+        private ImportReader initImportReader(GlobType targetType, Glob csvHeader, CsvLine record) {
             if (csvHeader.isTrue(CsvHeader.firstLineIsHeader)) {
-                ImportReaderBuilder readerBuilder = new ImportReaderBuilder(targetType, trim);
+                ImportReaderBuilder readerBuilder = new ImportReaderBuilder(targetType, trim, csvDocument);
                 DefaultDataRead.RemapName remapName = new DefaultDataRead.RemapName(targetType, reNameFrom);
                 for (int i = 1; i < record.size(); i++) {
-                    String key = record.get(i);
+                    String key = record.getAt(i);
                     Field field = remapName.headNameToField.get(key);
                     if (field == null) {
                         field = findField(targetType, key);
@@ -847,7 +1063,7 @@ public class ImportFile {
                 }
                 return readerBuilder.build();
             } else {
-                ImportReaderBuilder importReaderBuilder = new ImportReaderBuilder(targetType, trim);
+                ImportReaderBuilder importReaderBuilder = new ImportReaderBuilder(targetType, trim, csvDocument);
                 targetType.streamFields().forEach(new Consumer<>() {
                     int i = 0;
 
@@ -876,7 +1092,7 @@ public class ImportFile {
                 csvHeaderTrue = csvHeader.isTrue(CsvHeader.firstLineIsHeader);
             }
 
-            public Optional<Glob> read(CSVRecord record) {
+            public Optional<Glob> read(CsvLine record) {
                 if (importReaderBuilder == null) {
                     this.importReaderBuilder = initImportReader(targetType, csvHeader, record);
                 }
@@ -930,7 +1146,7 @@ public class ImportFile {
                 csvHeaderTrue = csvHeader.isTrue(CsvHeader.firstLineIsHeader);
             }
 
-            public Optional<Glob> read(CSVRecord record) {
+            public Optional<Glob> read(CsvLine record) {
                 if (this.importReaderBuilder == null) {
                     this.importReaderBuilder = initImportReader(targetType, csvHeader, record);
                 }
@@ -962,5 +1178,57 @@ public class ImportFile {
             }
         }
 
+        private class CsvLineConsumer implements Consumer<CsvLine> {
+            private Iterator<UpdateLine> first;
+            private final Consumer<Glob> consumer;
+            private final GlobType globType;
+            private final List<UpdateLine> lines;
+            UpdateLine current;
+            boolean push;
+
+            public CsvLineConsumer(Iterator<UpdateLine> first, Consumer<Glob> consumer, GlobType globType, List<UpdateLine> lines) {
+                this.first = first;
+                this.consumer = consumer;
+                this.globType = globType;
+                this.lines = lines;
+                current = first.next();
+                push = false;
+            }
+
+            public void accept(CsvLine csvLine) {
+                String h = csvLine.getAt(0);
+                while (!current.getMarkerName().equals(h)) {
+                    if (!first.hasNext()) {
+                        push = true;
+                        pushGlob(consumer, globType, lines);
+                        first = lines.iterator();
+                        current = first.next();
+                    } else {
+                        current = first.next();
+                    }
+                }
+                Optional<Glob> readed = current.read(csvLine);
+                push &= readed.isEmpty();
+                if (readed.isPresent() && !current.add(readed.get())) {
+                    if (!first.hasNext()) {
+                        push = true;
+                        pushGlob(consumer, globType, lines);
+                        first = lines.iterator();
+                        current = first.next();
+                    } else {
+                        current = first.next();
+                    }
+                }
+            }
+            public void complete(){
+                if (!push) {
+                    pushGlob(consumer, globType, lines);
+                }
+            }
+        }
+
+    }
+
+    record Column(Row row) {
     }
 }

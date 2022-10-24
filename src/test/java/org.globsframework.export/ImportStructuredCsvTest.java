@@ -67,6 +67,49 @@ public class ImportStructuredCsvTest {
         Assert.assertEquals("aa", fullFirstLine.get(L3.cc));
         Assert.assertEquals("d", fullFirstLine.get(L3.dd));
     }
+    @Test
+    public void nameExcel() throws IOException {
+
+        List<Glob> l = new ArrayList<>();
+        Consumer<Glob> globConsumer = new Consumer<Glob>() {
+            public void accept(Glob glob) {
+                l.add(glob);
+            }
+        };
+
+        Glob a = FieldMappingType.TYPE.instantiate()
+                .set(FieldMappingType.to, "aa")
+                .set(FieldMappingType.from, FieldMappingType.FromType.TYPE.instantiate()
+                        .set(FieldMappingType.FromType.from, "a"));
+        Glob b = FieldMappingType.TYPE.instantiate()
+                .set(FieldMappingType.to, "bb")
+                .set(FieldMappingType.from, FieldMappingType.FromType.TYPE.instantiate()
+                        .set(FieldMappingType.FromType.from, "b"));
+        Glob c = FieldMappingType.TYPE.instantiate()
+                .set(FieldMappingType.to, "cc")
+                .set(FieldMappingType.from, FieldMappingType.FromType.TYPE.instantiate()
+                        .set(FieldMappingType.FromType.from, "c"));
+        Glob d = FieldMappingType.TYPE.instantiate()
+                .set(FieldMappingType.to, "dd")
+                .set(FieldMappingType.from, FieldMappingType.FromType.TYPE.instantiate()
+                        .set(FieldMappingType.FromType.from, "dd"));
+
+        ImportFile.Importer importFile = new ImportFile().withSeparator(';')
+                .withTransformer(List.of(a, b, c, d), false)
+                .createComplexExcel(getClass().getResourceAsStream("/struct.xlsx"), L1.TYPE);
+        importFile.consume(globConsumer);
+        Assert.assertEquals(2, l.size());
+        Glob first = l.get(0);
+        Assert.assertEquals("aa", first.get(L1.aa));
+        Assert.assertEquals("bbb", l.get(1).get(L1.aa));
+        Assert.assertEquals(2, first.get(L1.l2).length);
+        Assert.assertEquals(1, first.get(L1.l2)[0].get(L2.l3).length);
+        Glob fullFirstLine = first.get(L1.l2)[0].get(L2.l3)[0];
+        Assert.assertEquals("aa", fullFirstLine.get(L3.aa));
+        Assert.assertEquals("bb", fullFirstLine.get(L3.bb));
+        Assert.assertEquals("aa", fullFirstLine.get(L3.cc));
+        Assert.assertEquals("d", fullFirstLine.get(L3.dd));
+    }
 
     @Test
     public void simple() throws IOException {

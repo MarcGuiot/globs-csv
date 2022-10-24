@@ -51,6 +51,23 @@ public class ImportFileTest {
             }
         }, Type.TYPE);
 
+        checkTestName(imports);
+    }
+
+    @Test
+    public void nameExcel() throws IOException {
+        ImportFile importFile = new ImportFile();
+        List<Glob> imports = new ArrayList<>();
+        importFile.importContentExcel(getClass().getResourceAsStream("/test1.xlsx"), new Consumer<Glob>() {
+            public void accept(Glob glob) {
+                imports.add(glob);
+            }
+        }, Type.TYPE);
+
+        checkTestName(imports);
+    }
+
+    private static void checkTestName(List<Glob> imports) {
         Assert.assertEquals(6, imports.size());
         Glob glob;
         {
@@ -268,6 +285,24 @@ public class ImportFileTest {
     }
 
     @Test
+    public void testDateTimeAndPartialDateTimeFromExcel() throws IOException {
+        ImportFile importFile = new ImportFile();
+
+        List<Glob> imports = new ArrayList<>();
+        importFile.importContentExcel(getClass().getResourceAsStream("/date.xlsx"), new Consumer<Glob>() {
+            public void accept(Glob glob) {
+                imports.add(glob);
+            }
+        }, Type.TYPE);
+
+        Assert.assertEquals(1, imports.size());
+        Assert.assertEquals("2020-11-29", imports.get(0).get(Type.dateTimeWithoutTime).format(DateTimeFormatter.ISO_LOCAL_DATE
+                .withZone(ZoneId.of("America/Los_Angeles"))));
+        Assert.assertEquals("2020-11-30", imports.get(0).get(Type.dateTimeWithoutTime).format(DateTimeFormatter.ISO_LOCAL_DATE
+                .withZone(ZoneId.of("Europe/Paris"))));
+    }
+
+    @Test
     public void renameHeader() throws IOException {
         ImportFile importFile = new ImportFile();
         importFile.withSeparator(',');
@@ -291,6 +326,28 @@ public class ImportFileTest {
             Assert.assertEquals("QDS", glob.get(RenameTestType.d));
         }
     }
+
+    @Test
+    public void renameExcelHeader() throws IOException {
+        ImportFile importFile = new ImportFile();
+        importFile.withNameFrom("fi");
+
+        List<Glob> imports = new ArrayList<>();
+        importFile.importContentExcel(getClass().getResourceAsStream("/test3.xlsx"), new Consumer<Glob>() {
+            public void accept(Glob glob) {
+                imports.add(glob);
+            }
+        }, RenameTestType.TYPE);
+        Assert.assertEquals(1, imports.size());
+        Glob glob;
+        {
+            glob = imports.get(0);
+            Assert.assertEquals("AZE", glob.get(RenameTestType.a));
+            Assert.assertEquals("EZA", glob.get(RenameTestType.b));
+            Assert.assertEquals("QDS", glob.get(RenameTestType.d));
+        }
+    }
+
 
     static public class RenameTestType {
         public static GlobType TYPE;
@@ -330,5 +387,10 @@ public class ImportFileTest {
         static {
             GlobTypeLoaderFactory.create(Type.class, true).load();
         }
+    }
+
+    @Test
+    public void readExcel() {
+
     }
 }

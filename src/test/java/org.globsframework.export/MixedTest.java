@@ -36,6 +36,25 @@ public class MixedTest {
         Assert.assertEquals("vd2", list.get(0).get(Root.h2)[1].get(H2.D));
     }
 
+    @Test
+    public void nameExcel() {
+        String val = "" +
+                "H1;A;B\n" +
+                "H2;C;D;E;F\n" +
+                "H2;vc1;vd1;ve1;vf1\n" +
+                "H2;vc2;vd2;ve2;vf2\n" +
+                "H3;a;b\n";
+
+        ImportFile importFile = new ImportFile();
+        ImportFile.Importer multi = importFile.withSeparator(';')
+                .createMultiExcel(getClass().getResourceAsStream("/mixed.xlsx"), Root.TYPE, List.of());
+        List<Glob> list = new ArrayList<>();
+        multi.consume(list::add);
+        Assert.assertEquals(1, list.size());
+        Assert.assertEquals(2, list.get(0).get(Root.h2).length);
+        Assert.assertEquals("vd2", list.get(0).get(Root.h2)[1].get(H2.D));
+    }
+
     public static class Root {
         public static GlobType TYPE;
 
