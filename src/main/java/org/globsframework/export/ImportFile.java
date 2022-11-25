@@ -6,6 +6,7 @@ import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.ByteOrderMark;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.SheetUtil;
 import org.globsframework.export.annotation.CsvHeader;
 import org.globsframework.export.annotation.ExportDateFormat;
 import org.globsframework.export.annotation.ImportEmptyStringHasEmptyStringFormat;
@@ -23,8 +24,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.text.DecimalFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAccessor;
@@ -341,7 +344,7 @@ public class ImportFile {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        final ExcelDocument excelDocument = new ExcelDocument(sheets.getSheetAt(0), Map.of());
+        final ExcelDocument excelDocument = new ExcelDocument(sheets, sheets.getSheetAt(0), Map.of());
         excelDocument.skipFirstLine(false);
         DataRead dataRead = new MultiTypeDataRead(excelDocument);
 
@@ -442,7 +445,7 @@ public class ImportFile {
                 }
             }
         }
-        final ExcelDocument excelDocument = new ExcelDocument(sheet, headers);
+        final ExcelDocument excelDocument = new ExcelDocument(sheets, sheet, headers);
         excelDocument.skipFirstLine(skipFirstLine);
         return excelDocument;
     }
@@ -921,13 +924,17 @@ public class ImportFile {
     }
 
     private static class ExcelDocument implements CsvDocument {
+        private Workbook workbook;
         private Sheet sheet;
         private final Map<String, Integer> headers;
         private boolean skipFirstLine;
+        private FormulaEvaluator formulaEvaluator;
 
-        public ExcelDocument(Sheet sheet, Map<String, Integer> headers) {
+        public ExcelDocument(Workbook workbook, Sheet sheet, Map<String, Integer> headers) {
+            this.workbook = workbook;
             this.sheet = sheet;
             this.headers = headers;
+
         }
 
         public Map<String, Integer> getHeader() {
@@ -973,15 +980,7 @@ public class ImportFile {
                     public String getAt(int index) {
                         final Cell cell = realLine.get(index);
                         if (cell != null) {
-                            final String str = switch (cell.getCellType()) {
-                                case _NONE, BLANK -> null;
-                                case NUMERIC -> Double.toString(cell.getNumericCellValue());
-                                case STRING -> cell.getStringCellValue();
-                                case FORMULA -> throw new RuntimeException("Formula not allowed");
-                                case BOOLEAN -> cell.getBooleanCellValue() ? "true" : "false";
-                                case ERROR -> throw new RuntimeException("Formula not allowed");
-                            };
-                            return str;
+                            return getCellValueAsString(cell);
                         }
                         return null;
                     }
@@ -991,6 +990,44 @@ public class ImportFile {
                     }
                 });
             }
+        }
+
+        private String getCellValueAsString(Cell cell) {
+            final String str = switch (cell.getCellType()) {
+                case _NONE, BLANK -> null;
+                case NUMERIC -> {
+                    final double numericCellValue = cell.getNumericCellValue();
+                    if (numericCellValue == Math.rint(numericCellValue)) {
+                        yield Long.toString(Double.valueOf(numericCellValue).longValue());
+                    }
+                    yield Double.toString(numericCellValue);
+                }
+                case STRING -> cell.getStringCellValue();
+                case FORMULA -> getValueFromFormula(cell);
+                case BOOLEAN -> cell.getBooleanCellValue() ? "true" : "false";
+                case ERROR -> throw new RuntimeException("Formula not allowed");
+            };
+            return str;
+        }
+
+        private String getValueFromFormula(Cell cell) {
+            if (formulaEvaluator == null) {
+                formulaEvaluator = workbook.getCreationHelper().createFormulaEvaluator();
+            }
+            final CellValue evaluate = formulaEvaluator.evaluate(cell);
+            return switch (evaluate.getCellType()) {
+                case _NONE, BLANK -> null;
+                case NUMERIC -> {
+                    final String s = BigDecimal.valueOf(evaluate.getNumberValue()).toPlainString();
+                    if (s.endsWith(".0")) {
+                        yield s.substring(0, s.length() - 2);
+                    }
+                    yield s;
+                }
+                case STRING -> evaluate.getStringValue();
+                case BOOLEAN -> evaluate.getBooleanValue() ? "true" : "false";
+                case FORMULA, ERROR -> throw new RuntimeException("Error " + evaluate.getErrorValue());
+            };
         }
     }
 

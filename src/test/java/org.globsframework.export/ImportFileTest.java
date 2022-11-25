@@ -348,6 +348,45 @@ public class ImportFileTest {
         }
     }
 
+    @Test
+    public void readBigNumberAndFormula() throws IOException {
+        ImportFile importFile = new ImportFile();
+        List<Glob> imports = new ArrayList<>();
+        importFile.importContentExcel(getClass().getResourceAsStream("/testBigNumberAndFormula.xlsx"), new Consumer<Glob>() {
+            public void accept(Glob glob) {
+                imports.add(glob);
+            }
+        }, BigLine.TYPE);
+        Assert.assertEquals("82100335101", imports.get(0).get(BigLine.CODE_ART));
+        Assert.assertEquals("3700358217446", imports.get(0).get(BigLine.EAN));
+        Assert.assertEquals("400", imports.get(0).get(BigLine.QTE_ATTENDUE));
+        Assert.assertEquals("20221121", imports.get(0).get(BigLine.DATE_PREVUE));
+        Assert.assertEquals("1", imports.get(0).get(BigLine.NUM_BL));
+        Assert.assertEquals("1", imports.get(0).get(BigLine.NUM_COLIS));
+        Assert.assertEquals("3700358090360", imports.get(1).get(BigLine.CODE_ART));
+        Assert.assertEquals("3423222084141", imports.get(1).get(BigLine.EAN));
+        Assert.assertEquals("12", imports.get(1).get(BigLine.QTE_ATTENDUE));
+        Assert.assertEquals("20221121", imports.get(1).get(BigLine.DATE_PREVUE));
+        Assert.assertEquals("1", imports.get(1).get(BigLine.NUM_BL));
+        Assert.assertEquals("2", imports.get(1).get(BigLine.NUM_COLIS));
+
+    }
+
+    public static class BigLine {
+        public static GlobType TYPE;
+
+        public static StringField CODE_ART;
+        public static StringField EAN;
+        public static StringField QTE_ATTENDUE;
+        public static StringField DATE_PREVUE;
+        public static StringField NUM_BL;
+        public static StringField NUM_COLIS;
+
+        static {
+            GlobTypeLoaderFactory.create(BigLine.class).load();
+        }
+    }
+
 
     static public class RenameTestType {
         public static GlobType TYPE;
