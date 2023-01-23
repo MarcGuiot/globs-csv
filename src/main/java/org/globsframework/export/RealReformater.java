@@ -340,10 +340,10 @@ public class RealReformater implements Reformater {
 
         public String format(String value) {
             Matcher matcher = pattern.matcher(value);
-            if (matcher.matches()) {
+//            if (matcher.matches()) {
                 return matcher.replaceAll(result);
-            }
-            return value;
+//            }
+//            return value;
         }
     }
 
