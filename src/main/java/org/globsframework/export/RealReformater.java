@@ -55,113 +55,182 @@ public class RealReformater implements Reformater {
             Glob from = mapping.get(FieldMappingType.from);
             StringField str = outTypeBuilder.declareStringField(fieldName);
             if (from.getType() == FieldMappingType.FromType.TYPE) {
-                ExtractField extractField =
-                        new ExtractField(fromType.getField(from.get(FieldMappingType.FromType.from)).asStringField(),
-                                from.get(FieldMappingType.FromType.defaultValueIfEmpty),
-                                buildFormater(from.getOrEmpty(FieldMappingType.FromType.formater)));
-                Merger merger = new FormatMerger(extractField);
-                fieldMerger.add((input, to) -> {
-                            String res = merger.merge(input);
-                            if (res != null) {
-                                to.set(str, res);
-                            }
-                        }
-                );
+                onFrom(fromType, from, str);
             } else if (from.getType() == FieldMappingType.TemplateType.TYPE) {
-                Map<String, ExtractField> extractFields = new HashMap<>();
-                for (Glob extr : from.getOrEmpty(FieldMappingType.TemplateType.from)) {
-                    Glob f = extr.get(FieldMappingType.RenamedType.from);
-                    String renamed = extr.get(FieldMappingType.RenamedType.renameTo,
-                            f.get(FieldMappingType.FromType.from));
-                    extractFields.put(renamed,
-                            new ExtractField(
-                                    fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
-                                    f.get(FieldMappingType.FromType.defaultValueIfEmpty),
-                                    buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater)))
-                    );
-                }
-                Merger merger =
-                        new MergerTemplate(fromType, from.get(FieldMappingType.TemplateType.template), extractFields,
-                                this.externalVariables, from.isTrue(FieldMappingType.TemplateType.noValueIfOnIsMissing));
-                fieldMerger.add((input, to) -> {
-                            String res = merger.merge(input);
-                            if (res != null) {
-                                to.set(str, res);
-                            }
-                        }
-                );
+                onTemplate(fromType, from, str);
             } else if (from.getType() == FieldMappingType.OverrideData.TYPE) {
-                List<ExtractField> extractFields = new ArrayList<>();
-                for (Glob f : from.getOrEmpty(FieldMappingType.OverrideData.inputField)) {
-                    extractFields.add(
-                            new ExtractField(
-                                    fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
-                                    f.get(FieldMappingType.FromType.defaultValueIfEmpty),
-                                    buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater)))
-                    );
-                }
-
-                CustomDataAccess dataAccess = this.dataAccessFactory.create(fieldName, fromType,
-                        from.get(FieldMappingType.OverrideData.name),
-                        from.get(FieldMappingType.OverrideData.additionalParams));
-                fieldMerger.add((input, to) -> {
-                    List<String> data = new ArrayList<>(extractFields.size());
-                    for (ExtractField extractField : extractFields) {
-                        data.add(extractField.tr(input));
-                    }
-                    String res = dataAccess.get(fieldName, data, input);
-                    if (res != null) {
-                        to.set(str, res);
-                    }
-                });
+                onOverride(fromType, fieldName, from, str);
             } else if (from.getType() == FieldMappingType.MappingData.TYPE) {
-                final Glob f = from.get(FieldMappingType.MappingData.from);
-                ExtractField extractField =
-                        new ExtractField(fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
-                                f.get(FieldMappingType.FromType.defaultValueIfEmpty),
-                                buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater)));
-                final Glob[] data = from.getOrEmpty(FieldMappingType.MappingData.mapping);
-                Map<String, String> keyToValues = Arrays.stream(data).collect(Collectors.toMap(FieldMappingType.KeyValue.key, FieldMappingType.KeyValue.value));
-                if (from.isTrue(FieldMappingType.MappingData.copyValueIfNoMapping)) {
-                    fieldMerger.add((input, to) -> {
-                        final String tr = extractField.tr(input);
-                        if (tr != null) {
-                            final String newValue = keyToValues.get(tr);
-                            to.set(str, newValue != null ? newValue : tr);
-                        }
-                    });
-                } else {
-                    fieldMerger.add((input, to) -> {
-                        final String tr = extractField.tr(input);
-                        if (tr != null) {
-                            final String newValue = keyToValues.get(tr);
-                            if (newValue != null) {
-                                to.set(str, newValue);
-                            }
-                        }
-                    });
-                }
+                onMapping(fromType, from, str);
+            } else if (from.getType() == FieldMappingType.JoinType.TYPE) {
+                onJoin(fromType, from, str);
             } else if (from.getType() == FieldMappingType.SumData.TYPE) {
-                List<ExtractField> extractFields = new ArrayList<>();
-                for (Glob f : from.getOrEmpty(FieldMappingType.SumData.from)) {
-                    extractFields.add(
-                            new ExtractField(
-                                    fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
-                                    f.get(FieldMappingType.FromType.defaultValueIfEmpty),
-                                    buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater)))
-                    );
-                }
-                Merger merger = new SumDataOp(fromType, extractFields);
-                fieldMerger.add((input, to) -> {
-                            String res = merger.merge(input);
-                            if (res != null) {
-                                to.set(str, res);
-                            }
-                        }
-                );
+                onSum(fromType, from, str);
             }
         }
         resultType = outTypeBuilder.get();
+    }
+
+    private void onFrom(GlobType fromType, Glob from, StringField str) {
+        ExtractField extractField =
+                new ExtractField(fromType.getField(from.get(FieldMappingType.FromType.from)).asStringField(),
+                        from.get(FieldMappingType.FromType.defaultValueIfEmpty),
+                        buildFormater(from.getOrEmpty(FieldMappingType.FromType.formater)));
+        Merger merger = new FormatMerger(extractField);
+        fieldMerger.add((input, to) -> {
+                    String res = merger.merge(input);
+                    if (res != null) {
+                        to.set(str, res);
+                    }
+                }
+        );
+    }
+
+    private void onMapping(GlobType fromType, Glob from, StringField str) {
+        final Glob f = from.get(FieldMappingType.MappingData.from);
+        ExtractField extractField =
+                new ExtractField(fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
+                        f.get(FieldMappingType.FromType.defaultValueIfEmpty),
+                        buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater)));
+        final Glob[] data = from.getOrEmpty(FieldMappingType.MappingData.mapping);
+        Map<String, String> keyToValues = Arrays.stream(data).collect(Collectors.toMap(FieldMappingType.KeyValue.key, FieldMappingType.KeyValue.value));
+        if (from.isTrue(FieldMappingType.MappingData.copyValueIfNoMapping)) {
+            fieldMerger.add((input, to) -> {
+                final String tr = extractField.tr(input);
+                if (tr != null) {
+                    final String newValue = keyToValues.get(tr);
+                    to.set(str, newValue != null ? newValue : tr);
+                }
+            });
+        } else {
+            fieldMerger.add((input, to) -> {
+                final String tr = extractField.tr(input);
+                if (tr != null) {
+                    final String newValue = keyToValues.get(tr);
+                    if (newValue != null) {
+                        to.set(str, newValue);
+                    }
+                }
+            });
+        }
+    }
+
+    private void onOverride(GlobType fromType, String fieldName, Glob from, StringField str) {
+        List<ExtractField> extractFields = new ArrayList<>();
+        for (Glob f : from.getOrEmpty(FieldMappingType.OverrideData.inputField)) {
+            extractFields.add(
+                    new ExtractField(
+                            fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
+                            f.get(FieldMappingType.FromType.defaultValueIfEmpty),
+                            buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater)))
+            );
+        }
+
+        CustomDataAccess dataAccess = this.dataAccessFactory.create(fieldName, fromType,
+                from.get(FieldMappingType.OverrideData.name),
+                from.get(FieldMappingType.OverrideData.additionalParams));
+        fieldMerger.add((input, to) -> {
+            List<String> data = new ArrayList<>(extractFields.size());
+            for (ExtractField extractField : extractFields) {
+                data.add(extractField.tr(input));
+            }
+            String res = dataAccess.get(fieldName, data, input);
+            if (res != null) {
+                to.set(str, res);
+            }
+        });
+    }
+
+    private void onTemplate(GlobType fromType, Glob from, StringField str) {
+        Map<String, ExtractField> extractFields = new HashMap<>();
+        for (Glob extr : from.getOrEmpty(FieldMappingType.TemplateType.from)) {
+            Glob f = extr.get(FieldMappingType.RenamedType.from);
+            String renamed = extr.get(FieldMappingType.RenamedType.renameTo,
+                    f.get(FieldMappingType.FromType.from));
+            extractFields.put(renamed,
+                    new ExtractField(
+                            fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
+                            f.get(FieldMappingType.FromType.defaultValueIfEmpty),
+                            buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater)))
+            );
+        }
+        Merger merger =
+                new MergerTemplate(fromType, from.get(FieldMappingType.TemplateType.template), extractFields,
+                        this.externalVariables, from.isTrue(FieldMappingType.TemplateType.noValueIfOnIsMissing));
+        fieldMerger.add((input, to) -> {
+                    String res = merger.merge(input);
+                    if (res != null) {
+                        to.set(str, res);
+                    }
+                }
+        );
+    }
+
+    private void onSum(GlobType fromType, Glob from, StringField str) {
+        List<ExtractField> extractFields = new ArrayList<>();
+        for (Glob f : from.getOrEmpty(FieldMappingType.SumData.from)) {
+            extractFields.add(
+                    new ExtractField(
+                            fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
+                            f.get(FieldMappingType.FromType.defaultValueIfEmpty),
+                            buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater)))
+            );
+        }
+        Merger merger = new SumDataOp(fromType, extractFields);
+        fieldMerger.add((input, to) -> {
+                    String res = merger.merge(input);
+                    if (res != null) {
+                        to.set(str, res);
+                    }
+                }
+        );
+    }
+
+    private void onJoin(GlobType fromType, Glob from, StringField str) {
+        final Glob[] on = from.getOrEmpty(FieldMappingType.JoinType.from);
+        final ExtractField[] extractFields = Arrays.stream(on).map(f ->
+                        new ExtractField(fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
+                                f.get(FieldMappingType.FromType.defaultValueIfEmpty),
+                                buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater))))
+                .toArray(ExtractField[]::new);
+
+        final String separator = from.get(FieldMappingType.JoinType.separator, "");
+        final String first = from.get(FieldMappingType.JoinType.first, "");
+        final boolean addFirst = from.isTrue(FieldMappingType.JoinType.addFirstIfEmpty);
+        final String last = from.get(FieldMappingType.JoinType.last, "");
+        final boolean addLast = from.isTrue(FieldMappingType.JoinType.addLastIfEmpty);
+
+        fieldMerger.add((input, to) -> {
+            StringBuilder data = new StringBuilder();
+            for (ExtractField extractField : extractFields) {
+                final String tr = extractField.tr(input);
+                if (tr != null) {
+                    if (data.isEmpty()) {
+                        if (!first.isEmpty()) {
+                            data.append(first);
+                        }
+                    } else {
+                        data.append(separator);
+                    }
+                    data.append(tr);
+                }
+            }
+
+            if (data.isEmpty()) {
+                if (!first.isEmpty() && addFirst) {
+                    data.insert(0, first);
+                }
+                if (!last.isEmpty() && addLast) {
+                    data.append(last);
+                }
+            }
+            else {
+                data.append(last);
+            }
+            if (!data.isEmpty()) {
+                to.set(str, data.toString());
+            }
+        });
     }
 
     @Override
@@ -341,7 +410,7 @@ public class RealReformater implements Reformater {
         public String format(String value) {
             Matcher matcher = pattern.matcher(value);
 //            if (matcher.matches()) {
-                return matcher.replaceAll(result);
+            return matcher.replaceAll(result);
 //            }
 //            return value;
         }
@@ -370,6 +439,7 @@ public class RealReformater implements Reformater {
 
     public static class DefaultDataAccessFactory implements CustomDataAccessFactory {
         public static CustomDataAccessFactory DEFAULT = new DefaultDataAccessFactory();
+
         public CustomDataAccess create(String fieldName, GlobType lineType, String s, String from) {
             return new CustomDataAccess() {
                 public String get(String fieldName, List<String> input, Glob data) {

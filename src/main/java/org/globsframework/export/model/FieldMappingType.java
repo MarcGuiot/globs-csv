@@ -11,7 +11,7 @@ import org.globsframework.model.Glob;
 public class FieldMappingType {
     public static GlobType TYPE;
 
-    @Targets({FromType.class, TemplateType.class, SumData.class, OverrideData.class, MappingData.class})
+    @Targets({FromType.class, TemplateType.class, SumData.class, OverrideData.class, MappingData.class, JoinType.class})
     public static GlobUnionField from;
 
     public static StringField to;
@@ -75,6 +75,27 @@ public class FieldMappingType {
 
         static {
             GlobTypeLoaderFactory.create(RenamedType.class).load();
+        }
+    }
+
+    public static class JoinType {
+        public static GlobType TYPE;
+
+        @Target(FromType.class)
+        public static GlobArrayField from;
+
+        public static StringField separator;
+
+        public static StringField first;
+
+        public static BooleanField addFirstIfEmpty;
+
+        public static StringField last;
+
+        public static BooleanField addLastIfEmpty;
+
+        static {
+            GlobTypeLoaderFactory.create(JoinType.class).load();
         }
     }
 
