@@ -6,7 +6,6 @@ import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.ByteOrderMark;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.ss.util.SheetUtil;
 import org.globsframework.export.annotation.CsvHeader;
 import org.globsframework.export.annotation.ExportDateFormat;
 import org.globsframework.export.annotation.ImportEmptyStringHasEmptyStringFormat;
@@ -27,7 +26,6 @@ import java.io.*;
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.text.DecimalFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAccessor;
@@ -432,8 +430,7 @@ public class ImportFile {
                 i++;
             }
             skipFirstLine = true;
-        }
-        else {
+        } else {
             skipFirstLine = false;
             StringBuilder current = new StringBuilder();
             for (char c : header.toCharArray()) {
@@ -728,8 +725,7 @@ public class ImportFile {
             final Date date = record.getAsDate(index);
             if (date != null) {
                 mutableGlob.set(field, LocalDate.ofInstant(date.toInstant(), ZoneId.systemDefault()));
-            }
-            else {
+            } else {
                 String s = getValue(record, index, trim);
                 if (Strings.isNotEmpty(s)) {
                     mutableGlob.set(field, LocalDate.from(dateTimeFormatter.parse(s.trim())));
@@ -764,8 +760,7 @@ public class ImportFile {
             final Date date = record.getAsDate(index);
             if (date != null) {
                 mutableGlob.set(field, ZonedDateTime.ofInstant(date.toInstant(), zoneId));
-            }
-            else {
+            } else {
                 String s = getValue(record, index, trim);
                 if (Strings.isNotEmpty(s)) {
                     TemporalAccessor temporalAccessor = dateTimeFormatter.parseBest(s.trim(), ZonedDateTime::from, LocalDateTime::from, LocalDate::from);
@@ -915,8 +910,7 @@ public class ImportFile {
                         }
 
                     });
-                }
-                else {
+                } else {
                     LOGGER.info("Ignore empty line");
                 }
             }
@@ -941,7 +935,7 @@ public class ImportFile {
             return headers;
         }
 
-        void skipFirstLine(boolean skipFirstLine){
+        void skipFirstLine(boolean skipFirstLine) {
             this.skipFirstLine = skipFirstLine;
         }
 
@@ -1257,7 +1251,8 @@ public class ImportFile {
                     }
                 }
             }
-            public void complete(){
+
+            public void complete() {
                 if (!push) {
                     pushGlob(consumer, globType, lines);
                 }
