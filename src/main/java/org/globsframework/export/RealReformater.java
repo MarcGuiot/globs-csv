@@ -333,6 +333,9 @@ public class RealReformater implements Reformater {
                     i++;
                 }
                 while (matcher.find());
+                if (i < split.length && !split[i].isEmpty()) {
+                    tokens.add(new StrToken(split[i]));
+                }
             } else {
                 tokens.add(new StrToken(template));
             }

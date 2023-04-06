@@ -22,6 +22,8 @@ public class FieldMappingType {
         GlobTypeLoaderFactory.create(FieldMappingType.class).load();
     }
 
+//  TODO   {a1,a2}{b}{c1,c2} => a1.b.c1, a1.b.c2, a1.b.c1, a1.b.c2
+
     public static class SumData {
         public static GlobType TYPE;
 
