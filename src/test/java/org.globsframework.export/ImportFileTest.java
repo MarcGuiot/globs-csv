@@ -188,6 +188,7 @@ public class ImportFileTest {
         ));
 
         GlobType type = importer.getType();
+        Assert.assertEquals("DefaultCsv", type.getName());
         importer.consume(new Consumer<Glob>() {
             public void accept(Glob glob) {
                 imports.add(glob);
@@ -202,6 +203,35 @@ public class ImportFileTest {
             Assert.assertEquals("REF_1", glob.get(type.getField("sku").asStringField()));
         }
 
+    }
+
+    @Test
+    public void withDefaultType() throws IOException {
+        ImportFile importFile = new ImportFile();
+        importFile.withSeparator(',').withDefaultGlobTypeName("Test");
+
+        List<Glob> imports = new ArrayList<>();
+        ImportFile.Importer importer = importFile.create(new StringReader(
+                "PRODUCT_ID,sku\n" +
+                        "1,\"REF_1\"\n" +
+                        ""
+        ));
+
+        GlobType type = importer.getType();
+        Assert.assertEquals("Test", type.getName());
+        importer.consume(new Consumer<Glob>() {
+            public void accept(Glob glob) {
+                imports.add(glob);
+            }
+        });
+
+        Assert.assertEquals(1, imports.size());
+        Glob glob;
+        {
+            glob = imports.get(0);
+            Assert.assertEquals("1", glob.get(type.getField("PRODUCT_ID").asStringField()));
+            Assert.assertEquals("REF_1", glob.get(type.getField("sku").asStringField()));
+        }
     }
 
     @Test
