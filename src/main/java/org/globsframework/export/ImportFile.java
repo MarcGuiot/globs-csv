@@ -50,6 +50,7 @@ public class ImportFile {
     private String reNameFrom;
     private Reformater reformater;
     private boolean isExcel;
+    private String defaultGlobTypeName = "DefaultCsv";
 
     public static InputStreamReader createReaderWithBomCheck(InputStream inputStream, Charset defaultCharset) throws IOException {
         BOMInputStream in = new BOMInputStream(inputStream, ByteOrderMark.UTF_8, ByteOrderMark.UTF_16LE, ByteOrderMark.UTF_16BE,
@@ -219,6 +220,11 @@ public class ImportFile {
         return this;
     }
 
+    public ImportFile withDefaultGlobTypeName(String defaultGlobTypeName) {
+        this.defaultGlobTypeName = defaultGlobTypeName;
+        return this;
+    }
+
     public Importer create(InputStream inputStream) throws IOException {
         return create(createReaderFromStream(inputStream), null);
     }
@@ -250,7 +256,7 @@ public class ImportFile {
     public Importer createExcel(InputStream inputStream, GlobType globType) throws IOException {
         final DefaultDataRead dataRead = new DefaultDataRead(loadExcel(inputStream), trim, reNameFrom);
         if (globType == null) {
-            globType = dataRead.createDefault();
+            globType = dataRead.createDefault(defaultGlobTypeName);
         }
         if (transformer != null && !transformer.isEmpty()) {
             reformater = new RealReformater(globType, transformer, propagateInFields, externalVariables, dataAccessFactory);
@@ -265,7 +271,7 @@ public class ImportFile {
             CsvDocument parse = load(reader);
             DefaultDataRead dataRead = new DefaultDataRead(parse, trim, reNameFrom);
             if (globType == null) {
-                globType = dataRead.createDefault();
+                globType = dataRead.createDefault(defaultGlobTypeName);
             }
             if (transformer != null && !transformer.isEmpty()) {
                 reformater = new RealReformater(globType, transformer, propagateInFields, externalVariables, dataAccessFactory);
@@ -516,8 +522,8 @@ public class ImportFile {
             this.reNameFrom = reNameFrom;
         }
 
-        GlobType createDefault() {
-            GlobTypeBuilder globTypeBuilder = new DefaultGlobTypeBuilder("DefaultCsv");
+        GlobType createDefault(String defaultGlobTypeName) {
+            GlobTypeBuilder globTypeBuilder = new DefaultGlobTypeBuilder(defaultGlobTypeName!= null ? defaultGlobTypeName : "DefaultCsv");
             Map<String, Integer> headerMap = parse.getHeader();
             for (String s1 : headerMap.keySet()) {
                 globTypeBuilder.declareStringField(s1);
