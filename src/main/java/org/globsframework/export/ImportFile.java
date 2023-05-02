@@ -6,10 +6,7 @@ import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.ByteOrderMark;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.poi.ss.usermodel.*;
-import org.globsframework.export.annotation.CsvHeader;
-import org.globsframework.export.annotation.ExportDateFormat;
-import org.globsframework.export.annotation.ImportEmptyStringHasEmptyStringFormat;
-import org.globsframework.export.annotation.ReNamedExport;
+import org.globsframework.export.annotation.*;
 import org.globsframework.metamodel.Field;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.GlobTypeBuilder;
@@ -32,6 +29,7 @@ import java.time.temporal.TemporalAccessor;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class ImportFile {
     private static Logger LOGGER = LoggerFactory.getLogger(ImportFile.class);
@@ -267,20 +265,79 @@ public class ImportFile {
     }
 
     public Importer create(Reader reader, GlobType globType) throws IOException {
+        CsvDocument parse;
         if (withSeparator) {
-            CsvDocument parse = load(reader);
-            DefaultDataRead dataRead = new DefaultDataRead(parse, trim, reNameFrom);
-            if (globType == null) {
-                globType = dataRead.createDefault(defaultGlobTypeName);
-            }
-            if (transformer != null && !transformer.isEmpty()) {
-                reformater = new RealReformater(globType, transformer, propagateInFields, externalVariables, dataAccessFactory);
-            } else {
-                reformater = new NullReformater(globType);
-            }
-            return new DefaultImporter(globType, dataRead, reformater);
+            parse = load(reader);
         } else {
-            throw new RuntimeException("Not implemented");
+            parse = readFix(reader, globType);
+        }
+        DefaultDataRead dataRead = new DefaultDataRead(parse, trim, reNameFrom);
+        if (globType == null) {
+                globType = dataRead.createDefault(defaultGlobTypeName);
+        }
+        if (transformer != null && !transformer.isEmpty()) {
+            reformater = new RealReformater(globType, transformer, propagateInFields, externalVariables, dataAccessFactory);
+        } else {
+            reformater = new NullReformater(globType);
+        }
+        return new DefaultImporter(globType, dataRead, reformater);
+    }
+
+    CsvDocument readFix(Reader reader, GlobType globType) {
+        if (globType == null) {
+            throw new RuntimeException("Expecting a GlobType for fix len data structure.");
+        }
+
+        final Map<String, Integer> header = Arrays.stream(globType.getFields()).collect(Collectors.toMap(Field::getName, Field::getIndex));
+
+        BufferedReader bufferedReader = reader instanceof BufferedReader ? (BufferedReader) reader : new BufferedReader(reader);
+        FixSizeElementBuilder fixSizeElementBuilder = new FixSizeElementBuilder(0);
+        final FixSizeElement[] elements = Arrays.stream(globType.getFields())
+                .sorted(Comparator.comparing(Field::getIndex))
+                .map(f -> fixSizeElementBuilder.next(f.getAnnotation(ExportColumnSize.KEY).get(ExportColumnSize.SIZE)))
+                .toArray(FixSizeElement[]::new);
+        return new CsvDocument() {
+
+            public Map<String, Integer> getHeader() {
+                return header;
+            }
+
+            public void read(Consumer<CsvLine> line, int maxFieldCount) {
+                String strLine;
+                try {
+                    while ((strLine = bufferedReader.readLine()) != null) {
+                        line.accept(new SplittedCsvLine(elements, strLine));
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
+    }
+
+    public static class FixSizeElementBuilder {
+        int currenPos = 0;
+
+        public FixSizeElementBuilder(int currenPos) {
+            this.currenPos = currenPos;
+        }
+
+        public FixSizeElement next(int size) {
+            return new FixSizeElement(currenPos, currenPos += size);
+        }
+    }
+
+    public static class FixSizeElement {
+        private int from;
+        private int to;
+
+        public FixSizeElement(int from, int to) {
+            this.from = from;
+            this.to = to;
+        }
+
+        public String split(String strLine) {
+            return strLine.substring(from, to);
         }
     }
 
@@ -356,7 +413,6 @@ public class ImportFile {
         return new DefaultImporter(globType, dataRead, reformater);
     }
 
-
     public Importer createMulti(InputStream inputStream, GlobType globType) throws IOException {
         return createMulti(createReaderFromStream(inputStream), globType, List.of());
     }
@@ -366,28 +422,96 @@ public class ImportFile {
     }
 
     public Importer createMulti(Reader reader, GlobType globType, List<Glob> transformer) {
-        if (withSeparator) {
-            if (globType == null) {
-                throw new RuntimeException("Missing type");
+        try {
+            CsvDocument csvDocument;
+            if (withSeparator) {
+                if (globType == null) {
+                    throw new RuntimeException("Missing type");
+                }
+                CSVFormat.Builder csvFormatBuilder =
+                        CSVFormat.Builder.create(CSVFormat.DEFAULT)
+                                .setDelimiter(separator)
+                                .setEscape('\\')
+                                .setQuote(quoteChar);
+                csvDocument = new CsvDocumentFromCSVParse(csvFormatBuilder.build().parse(reader));
+            } else {
+                csvDocument = readFixMulti(reader, globType);
             }
-            CSVFormat.Builder csvFormatBuilder =
-                    CSVFormat.Builder.create(CSVFormat.DEFAULT)
-                            .setDelimiter(separator)
-                            .setEscape('\\')
-                            .setQuote(quoteChar);
-            try {
-                CsvDocument csvDocument = new CsvDocumentFromCSVParse(csvFormatBuilder.build().parse(reader));
-                DataRead dataRead = new MultiTypeDataRead(csvDocument);
-
-                Reformater reformater = transformer == null || transformer.isEmpty() ? new NullReformater(globType) : new RealReformater(globType, transformer);
-                return new DefaultImporter(globType, dataRead, reformater);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        } else {
-            throw new RuntimeException("Not implemented");
+            DataRead dataRead = new MultiTypeDataRead(csvDocument);
+            Reformater reformater = transformer == null || transformer.isEmpty() ? new NullReformater(globType) : new RealReformater(globType, transformer);
+            return new DefaultImporter(globType, dataRead, reformater);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
+
+    private static class TypedLine {
+        private final FixSizeElement[] elements;
+        private Integer markerSize;
+
+        public TypedLine(GlobType globType, Integer markerSize) {
+            this.markerSize = markerSize;
+            FixSizeElementBuilder fixSizeElementBuilder = new FixSizeElementBuilder(markerSize);
+            elements = Arrays.stream(globType.getFields())
+                    .sorted(Comparator.comparing(Field::getIndex))
+                    .map(f -> fixSizeElementBuilder.next(f.getAnnotation(ExportColumnSize.KEY).get(ExportColumnSize.SIZE)))
+                    .toArray(FixSizeElement[]::new);
+        }
+    }
+
+    CsvDocument readFixMulti(Reader reader, GlobType globType) {
+        if (globType == null) {
+            throw new RuntimeException("Expecting a GlobType for fix len data structure.");
+        }
+
+        final Field[] fields = globType.getFields();
+        final Map<String, TypedLine> headerNameToTypedLine = Arrays.stream(fields).collect(
+                Collectors.toMap(
+                        f -> f.getAnnotation(CsvHeader.KEY).get(CsvHeader.name)
+                        , f -> {
+                            final Integer markerSize = f.getAnnotation(ExportColumnSize.KEY).getNotNull(ExportColumnSize.SIZE);
+                            if (f instanceof GlobField) {
+                                return new TypedLine(((GlobField) f).getTargetType(), markerSize);
+                            } else if (f instanceof GlobArrayField) {
+                                return new TypedLine(((GlobArrayField) f).getTargetType(), markerSize);
+                            } else {
+                                throw new RuntimeException("Expecting a GlobField or a GlobArrayField");
+                            }
+                        }));
+        BufferedReader bufferedReader = reader instanceof BufferedReader ? (BufferedReader) reader : new BufferedReader(reader);
+
+        final Set<Integer> collect = headerNameToTypedLine.values().stream().map(typedLine -> typedLine.markerSize)
+                .collect(Collectors.toSet());
+        if (collect.size() == 1) {
+            int size = collect.iterator().next();
+            return new CsvDocument() {
+
+                public Map<String, Integer> getHeader() {
+                    throw new RuntimeException("No header on multi");
+                }
+
+                public void read(Consumer<CsvLine> line, int maxFieldCount) {
+                    String strLine;
+                    try {
+                        while ((strLine = bufferedReader.readLine()) != null) {
+                            final String header = strLine.substring(0, size);
+                            final TypedLine typedLine = headerNameToTypedLine.get(header);
+                            if (typedLine == null) {
+                                throw new RuntimeException("Unknown header " + header);
+                            }
+                            line.accept(new SplittedWithHeaderCsvLine(header, typedLine.elements, strLine));
+                        }
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            };
+        }
+        else {
+            throw new RuntimeException("multi with marker of different size not managed.");
+        }
+    }
+
 
     public void importContent(InputStream inputStream, Consumer<Glob> consumer, GlobType globType) throws IOException {
         InputStreamReader reader = createReaderFromStream(inputStream);
@@ -1028,6 +1152,61 @@ public class ImportFile {
                 case BOOLEAN -> evaluate.getBooleanValue() ? "true" : "false";
                 case FORMULA, ERROR -> throw new RuntimeException("Error " + evaluate.getErrorValue());
             };
+        }
+    }
+
+    private static class SplittedCsvLine implements CsvLine {
+        private final FixSizeElement[] elements;
+        private final String strLine;
+
+        public SplittedCsvLine(FixSizeElement[] elements, String strLine) {
+            this.elements = elements;
+            this.strLine = strLine;
+        }
+
+        @Override
+        public Date getAsDate(int index) {
+            return null;
+        }
+
+        @Override
+        public String getAt(int index) {
+            return elements[index].split(strLine);
+        }
+
+        @Override
+        public int size() {
+            return elements.length;
+        }
+    }
+
+    private static class SplittedWithHeaderCsvLine implements CsvLine {
+        private String headerName;
+        private final FixSizeElement[] elements;
+        private final String strLine;
+
+        public SplittedWithHeaderCsvLine(String headerName, FixSizeElement[] elements, String strLine) {
+            this.headerName = headerName;
+            this.elements = elements;
+            this.strLine = strLine;
+        }
+
+        @Override
+        public Date getAsDate(int index) {
+            return null;
+        }
+
+        @Override
+        public String getAt(int index) {
+            if (index == 0) {
+                return headerName;
+            }
+            return elements[index - 1].split(strLine);
+        }
+
+        @Override
+        public int size() {
+            return elements.length + 1;
         }
     }
 

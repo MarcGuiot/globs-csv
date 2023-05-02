@@ -142,8 +142,19 @@ public class RealReformater implements Reformater {
     }
 
     private void onTemplate(GlobType fromType, Glob from, StringField str) {
+        Merger merger = getMerger(fromType, from);
+        fieldMerger.add((input, to) -> {
+                    String res = merger.merge(input);
+                    if (res != null) {
+                        to.set(str, res);
+                    }
+                }
+        );
+    }
+
+    private Merger getMerger(GlobType fromType, Glob template) {
         Map<String, ExtractField> extractFields = new HashMap<>();
-        for (Glob extr : from.getOrEmpty(FieldMappingType.TemplateType.from)) {
+        for (Glob extr : template.getOrEmpty(FieldMappingType.TemplateType.from)) {
             Glob f = extr.get(FieldMappingType.RenamedType.from);
             String renamed = extr.get(FieldMappingType.RenamedType.renameTo,
                     f.get(FieldMappingType.FromType.from));
@@ -155,15 +166,9 @@ public class RealReformater implements Reformater {
             );
         }
         Merger merger =
-                new MergerTemplate(fromType, from.get(FieldMappingType.TemplateType.template), extractFields,
-                        this.externalVariables, from.isTrue(FieldMappingType.TemplateType.noValueIfOnIsMissing));
-        fieldMerger.add((input, to) -> {
-                    String res = merger.merge(input);
-                    if (res != null) {
-                        to.set(str, res);
-                    }
-                }
-        );
+                new MergerTemplate(fromType, template.get(FieldMappingType.TemplateType.template), extractFields,
+                        this.externalVariables, template.isTrue(FieldMappingType.TemplateType.noValueIfOnIsMissing));
+        return merger;
     }
 
     private void onSum(GlobType fromType, Glob from, StringField str) {
