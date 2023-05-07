@@ -48,6 +48,7 @@ public class ImportFile {
     private String reNameFrom;
     private Reformater reformater;
     private boolean isExcel;
+    private Pattern filterLine;
     private String defaultGlobTypeName = "DefaultCsv";
 
     public static InputStreamReader createReaderWithBomCheck(InputStream inputStream, Charset defaultCharset) throws IOException {
@@ -162,6 +163,11 @@ public class ImportFile {
             LOGGER.warn("Field " + key + " ignored.");
         }
         return field;
+    }
+
+    public ImportFile filterLineOnFixSizeOnly(String match) {
+        filterLine = Pattern.compile(match);
+        return this;
     }
 
     public ImportFile withSeparator(char separator) {
@@ -306,7 +312,9 @@ public class ImportFile {
                 String strLine;
                 try {
                     while ((strLine = bufferedReader.readLine()) != null) {
-                        line.accept(new SplittedCsvLine(elements, strLine));
+                        if (filterLine == null || filterLine.matcher(strLine).matches()) {
+                            line.accept(new SplittedCsvLine(elements, strLine));
+                        }
                     }
                 } catch (IOException e) {
                     throw new RuntimeException(e);
@@ -601,7 +609,8 @@ public class ImportFile {
         } else {
             csvFormatBuilder.setHeader(); //to force read header from file
         }
-        final CSVParser parse = csvFormatBuilder.build().parse(reader);
+        final CSVParser parse = csvFormatBuilder.build()
+                .parse(reader);
         return new CsvDocumentFromCSVParse(parse);
 
     }
