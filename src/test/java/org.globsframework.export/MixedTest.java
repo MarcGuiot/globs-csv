@@ -19,18 +19,7 @@ import java.util.List;
 
 public class MixedTest {
 
-
-    @Test
-    public void toto() throws IOException {
-        ImportFile importFile = new ImportFile().withSeparator('|');
-        ImportFile.Importer multi = importFile.createMulti(ImportFile.createReaderWithBomCheck(
-                new FileInputStream("/tmp/CY_CCM_ORDER_20230508_1508_29091.csv"), StandardCharsets.UTF_8), CCMOrderType.TYPE);
-        List<Glob> ccms = new ArrayList<>();
-        multi.consume(ccms::add);
-        Assert.assertEquals(13, ccms.size());
-
-    }
-
+    
     @Test
     public void name() {
         String val = "" +
