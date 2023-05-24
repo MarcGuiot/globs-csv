@@ -1032,7 +1032,10 @@ public class ImportFile {
             for (CSVRecord strings : parse) {
                 boolean isValide = false;
                 for (String string : strings) {
-                    isValide |= Strings.isNotEmpty(string);
+                    if (Strings.isNotEmpty(string)){
+                        isValide = true;
+                        break;
+                    }
                 }
                 if (isValide) {
                     line.accept(new CsvLine() {

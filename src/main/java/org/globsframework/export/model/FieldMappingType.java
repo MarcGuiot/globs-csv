@@ -142,6 +142,8 @@ public class FieldMappingType {
 
         public static BooleanField copyValueIfNoMapping;
 
+        public static StringField defaultValueNoMapping;
+
         @Target(KeyValue.class)
         public static GlobArrayField mapping;
 

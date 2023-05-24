@@ -103,12 +103,15 @@ public class RealReformater implements Reformater {
                 }
             });
         } else {
+            final String def = from.get(FieldMappingType.MappingData.defaultValueNoMapping);
             fieldMerger.add((input, to) -> {
                 final String tr = extractField.tr(input);
                 if (tr != null) {
                     final String newValue = keyToValues.get(tr);
                     if (newValue != null) {
                         to.set(str, newValue);
+                    } else if (Strings.isNotEmpty(def)) {
+                        to.set(str, def);
                     }
                 }
             });
