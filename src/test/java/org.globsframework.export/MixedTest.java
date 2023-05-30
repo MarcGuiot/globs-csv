@@ -19,7 +19,7 @@ import java.util.List;
 
 public class MixedTest {
 
-    
+
     @Test
     public void name() {
         String val = "" +

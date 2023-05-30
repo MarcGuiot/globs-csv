@@ -37,14 +37,15 @@ public class ImportFileTest {
         List<Glob> imports = new ArrayList<>();
         importFile.importContent(new StringReader(
                 "PRODUCT_ID,sku\n" +
-                        "1,\"REF_1\"\n" +
-                        " 2 ,\"REF_2\"\n" +
-                        "\"3\",\"REF_3\"\n" +
-                        "\"4  \",\"REF_4\"\n" +
-                        "\"5  \",\"\"\n" +
-                        "\"6  \",\n" +
-                        "\n" +
-                        ""
+                "1,\"REF_1\"\n" +
+                " 2 ,\"REF_2\"\n" +
+                "\"3\",\"REF_3\"\n" +
+                "\"4  \",\"REF_4\"\n" +
+                "\"5  \",\"\"\n" +
+                "\"6  \",\\,\n" +
+                "\"7  \",\n" +
+                "\n" +
+                ""
         ), new Consumer<Glob>() {
             public void accept(Glob glob) {
                 imports.add(glob);
@@ -68,7 +69,7 @@ public class ImportFileTest {
     }
 
     private static void checkTestName(List<Glob> imports) {
-        Assert.assertEquals(6, imports.size());
+        Assert.assertEquals(7, imports.size());
         Glob glob;
         {
             glob = imports.get(0);
@@ -98,6 +99,11 @@ public class ImportFileTest {
         {
             glob = imports.get(5);
             Assert.assertEquals(6, glob.get(Type.ID).intValue());
+            Assert.assertEquals(",", glob.get(Type.SKU));
+        }
+        {
+            glob = imports.get(6);
+            Assert.assertEquals(7, glob.get(Type.ID).intValue());
             Assert.assertEquals("", glob.get(Type.SKU));
         }
     }
@@ -110,9 +116,9 @@ public class ImportFileTest {
         List<Glob> imports = new ArrayList<>();
         importFile.importContent(new StringReader(
                 "PRODUCT_ID,sku\n" +
-                        "1,\"REF on \n multiples line_1\"\n" +
-                        "\"4  \",\"REF_4\"\n" +
-                        ""
+                "1,\"REF on \n multiples line_1\"\n" +
+                "\"4  \",\"REF_4\"\n" +
+                ""
         ), new Consumer<Glob>() {
             public void accept(Glob glob) {
                 imports.add(glob);
@@ -135,9 +141,9 @@ public class ImportFileTest {
         List<Glob> imports = new ArrayList<>();
         importFile.importContent(new StringReader(
                 "PRODUCT_ID,sku\n" +
-                        "1,\"REF on \\\"a quoted text\\\"\"\n" +
-                        "\"4  \",\"REF_4\"\n" +
-                        ""
+                "1,\"REF on \\\"a quoted text\\\"\"\n" +
+                "\"4  \",\"REF_4\"\n" +
+                ""
         ), new Consumer<Glob>() {
             public void accept(Glob glob) {
                 imports.add(glob);
@@ -161,9 +167,9 @@ public class ImportFileTest {
         try {
             importFile.importContent(new StringReader(
                     "PRODUCT_ID,sku\n" +
-                            "1,\"REF on \"a badly quoted text\"\"\n" +
-                            "\"4  \",\"REF_4\"\n" +
-                            ""
+                    "1,\"REF on \"a badly quoted text\"\"\n" +
+                    "\"4  \",\"REF_4\"\n" +
+                    ""
             ), new Consumer<Glob>() {
                 public void accept(Glob glob) {
                     imports.add(glob);
@@ -183,8 +189,8 @@ public class ImportFileTest {
         List<Glob> imports = new ArrayList<>();
         ImportFile.Importer importer = importFile.create(new StringReader(
                 "PRODUCT_ID,sku\n" +
-                        "1,\"REF_1\"\n" +
-                        ""
+                "1,\"REF_1\"\n" +
+                ""
         ));
 
         GlobType type = importer.getType();
@@ -213,8 +219,8 @@ public class ImportFileTest {
         List<Glob> imports = new ArrayList<>();
         ImportFile.Importer importer = importFile.create(new StringReader(
                 "PRODUCT_ID,sku\n" +
-                        "1,\"REF_1\"\n" +
-                        ""
+                "1,\"REF_1\"\n" +
+                ""
         ));
 
         GlobType type = importer.getType();
@@ -259,8 +265,8 @@ public class ImportFileTest {
         List<Glob> imports = new ArrayList<>();
         importFile.importContent(new StringReader(
                 "PRODUCT_ID,sku\n" +
-                        "1,\"REF_1\"\n" +
-                        ""
+                "1,\"REF_1\"\n" +
+                ""
         ), new Consumer<Glob>() {
             public void accept(Glob glob) {
                 imports.add(glob);
@@ -281,7 +287,7 @@ public class ImportFileTest {
         importFile.withHeader("PRODUCT_ID,sku");
         importFile.importContent(new StringReader(
                 "1,\"REF_1\"\n" +
-                        ""
+                ""
         ), new Consumer<Glob>() {
             public void accept(Glob glob) {
                 imports.add(glob);
@@ -300,7 +306,7 @@ public class ImportFileTest {
         List<Glob> imports = new ArrayList<>();
         importFile.importContent(new StringReader(
                 "PRODUCT_ID,date,dateTime,dateTimeWithoutTime\n" +
-                        "1,20201130,20201130 223200,20201130\n"
+                "1,20201130,20201130 223200,20201130\n"
         ), new Consumer<Glob>() {
             public void accept(Glob glob) {
                 imports.add(glob);
@@ -341,7 +347,7 @@ public class ImportFileTest {
         List<Glob> imports = new ArrayList<>();
         importFile.importContent(new StringReader(
                 "aa,cc,dd\n" +
-                        "AZE,EZA,QDS\n"
+                "AZE,EZA,QDS\n"
         ), new Consumer<Glob>() {
             public void accept(Glob glob) {
                 imports.add(glob);
