@@ -133,11 +133,16 @@ public class ImportFile {
                 throw new RuntimeException(message);
             }
         }
-        CSVFormat csvFormat =
-                CSVFormat.DEFAULT
-                        .withDelimiter(separator)
-                        .withEscape('\\')
-                        .withFirstRecordAsHeader();
+        final CSVFormat csvFormat = CSVFormat.Builder.create()
+                .setQuote('"')
+                .setIgnoreEmptyLines(true)
+                .setAllowDuplicateHeaderNames(true)
+                .setDelimiter(separator)
+                .setEscape('\\')
+                .setHeader()
+                .setSkipHeaderRecord(true)
+                .setAllowMissingColumnNames(true)
+                .build();
         CSVParser parse = csvFormat.parse(new StringReader(s));
         Map<String, Integer> headerMap = parse.getHeaderMap();
         for (String s1 : headerMap.keySet()) {
@@ -438,6 +443,7 @@ public class ImportFile {
                 }
                 CSVFormat.Builder csvFormatBuilder =
                         CSVFormat.Builder.create(CSVFormat.DEFAULT)
+                                .setAllowMissingColumnNames(true)
                                 .setDelimiter(separator)
                                 .setEscape('\\')
                                 .setQuote(quoteChar);
@@ -588,6 +594,7 @@ public class ImportFile {
     private CsvDocument load(Reader reader) throws IOException {
         CSVFormat.Builder csvFormatBuilder =
                 CSVFormat.Builder.create(CSVFormat.DEFAULT)
+                        .setAllowMissingColumnNames(true)
                         .setDelimiter(separator)
                         .setEscape('\\')
                         .setQuote(quoteChar);
