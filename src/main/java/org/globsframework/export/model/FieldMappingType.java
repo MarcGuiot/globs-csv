@@ -58,6 +58,8 @@ public class FieldMappingType {
 
         public static StringField defaultValueIfEmpty;
 
+        public static StringField toStringFormater;
+
         @Target(FormatType.class)
         public static GlobArrayField formater;
 
@@ -143,6 +145,8 @@ public class FieldMappingType {
         public static BooleanField copyValueIfNoMapping;
 
         public static StringField defaultValueNoMapping;
+
+        public static StringField defaultEmptyValue;
 
         @Target(KeyValue.class)
         public static GlobArrayField mapping;

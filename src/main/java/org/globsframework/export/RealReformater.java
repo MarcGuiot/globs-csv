@@ -4,12 +4,16 @@ import org.globsframework.export.model.FieldMappingType;
 import org.globsframework.json.GSonUtils;
 import org.globsframework.metamodel.Field;
 import org.globsframework.metamodel.GlobType;
-import org.globsframework.metamodel.fields.StringField;
+import org.globsframework.metamodel.fields.*;
 import org.globsframework.metamodel.impl.DefaultGlobTypeBuilder;
 import org.globsframework.model.Glob;
 import org.globsframework.model.MutableGlob;
 import org.globsframework.utils.Strings;
 
+import java.text.DecimalFormat;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -72,9 +76,11 @@ public class RealReformater implements Reformater {
     }
 
     private void onFrom(GlobType fromType, Glob from, StringField str) {
+        final Field fromTypeField = fromType.getField(from.get(FieldMappingType.FromType.from));
         ExtractField extractField =
-                new ExtractField(fromType.getField(from.get(FieldMappingType.FromType.from)).asStringField(),
+                ExtractField.create(fromTypeField,
                         from.get(FieldMappingType.FromType.defaultValueIfEmpty),
+                        from.get(FieldMappingType.FromType.toStringFormater),
                         buildFormater(from.getOrEmpty(FieldMappingType.FromType.formater)));
         Merger merger = new FormatMerger(extractField);
         fieldMerger.add((input, to) -> {
@@ -88,9 +94,11 @@ public class RealReformater implements Reformater {
 
     private void onMapping(GlobType fromType, Glob from, StringField str) {
         final Glob f = from.get(FieldMappingType.MappingData.from);
+        final Field field = fromType.getField(f.get(FieldMappingType.FromType.from));
         ExtractField extractField =
-                new ExtractField(fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
+                ExtractField.create(field,
                         f.get(FieldMappingType.FromType.defaultValueIfEmpty),
+                        f.get(FieldMappingType.FromType.toStringFormater),
                         buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater)));
         final Glob[] data = from.getOrEmpty(FieldMappingType.MappingData.mapping);
         Map<String, String> keyToValues = Arrays.stream(data).collect(Collectors.toMap(FieldMappingType.KeyValue.key, FieldMappingType.KeyValue.value));
@@ -122,9 +130,10 @@ public class RealReformater implements Reformater {
         List<ExtractField> extractFields = new ArrayList<>();
         for (Glob f : from.getOrEmpty(FieldMappingType.OverrideData.inputField)) {
             extractFields.add(
-                    new ExtractField(
-                            fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
+                    ExtractField.create(
+                            fromType.getField(f.get(FieldMappingType.FromType.from)),
                             f.get(FieldMappingType.FromType.defaultValueIfEmpty),
+                            f.get(FieldMappingType.FromType.toStringFormater),
                             buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater)))
             );
         }
@@ -162,9 +171,10 @@ public class RealReformater implements Reformater {
             String renamed = extr.get(FieldMappingType.RenamedType.renameTo,
                     f.get(FieldMappingType.FromType.from));
             extractFields.put(renamed,
-                    new ExtractField(
-                            fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
+                    ExtractField.create(
+                            fromType.getField(f.get(FieldMappingType.FromType.from)),
                             f.get(FieldMappingType.FromType.defaultValueIfEmpty),
+                            f.get(FieldMappingType.FromType.toStringFormater),
                             buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater)))
             );
         }
@@ -178,9 +188,10 @@ public class RealReformater implements Reformater {
         List<ExtractField> extractFields = new ArrayList<>();
         for (Glob f : from.getOrEmpty(FieldMappingType.SumData.from)) {
             extractFields.add(
-                    new ExtractField(
-                            fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
+                    ExtractField.create(
+                            fromType.getField(f.get(FieldMappingType.FromType.from)),
                             f.get(FieldMappingType.FromType.defaultValueIfEmpty),
+                            f.get(FieldMappingType.FromType.toStringFormater),
                             buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater)))
             );
         }
@@ -197,8 +208,9 @@ public class RealReformater implements Reformater {
     private void onJoin(GlobType fromType, Glob from, StringField str) {
         final Glob[] on = from.getOrEmpty(FieldMappingType.JoinType.from);
         final ExtractField[] extractFields = Arrays.stream(on).map(f ->
-                        new ExtractField(fromType.getField(f.get(FieldMappingType.FromType.from)).asStringField(),
+                        ExtractField.create(fromType.getField(f.get(FieldMappingType.FromType.from)),
                                 f.get(FieldMappingType.FromType.defaultValueIfEmpty),
+                                f.get(FieldMappingType.FromType.toStringFormater),
                                 buildFormater(f.getOrEmpty(FieldMappingType.FromType.formater))))
                 .toArray(ExtractField[]::new);
 
@@ -427,16 +439,204 @@ public class RealReformater implements Reformater {
         }
     }
 
-    static class ExtractField {
+
+    interface ExtractField {
+        String tr(Glob from);
+
+        static ExtractField create(Field fromField, String defaultValue, String typeFormatter, Formatter formatter) {
+            if (fromField instanceof StringField) {
+                return new StringExtractField((StringField) fromField, defaultValue, formatter);
+            }
+            if (fromField instanceof DoubleField) {
+                DecimalFormat decimalFormat;
+                if (Strings.isNotEmpty(typeFormatter)) {
+                    decimalFormat = new DecimalFormat(typeFormatter);
+                }
+                else {
+                    decimalFormat = new DecimalFormat();
+                }
+                return new DecimalExtractField((DoubleField) fromField, defaultValue, formatter, decimalFormat);
+            }
+            if (fromField instanceof LongField) {
+                DecimalFormat decimalFormat;
+                if (Strings.isNotEmpty(typeFormatter)) {
+                    decimalFormat = new DecimalFormat(typeFormatter);
+                }
+                else {
+                    decimalFormat = new DecimalFormat();
+                }
+                return new LongExtractField((LongField) fromField, defaultValue, formatter, decimalFormat);
+            }
+            if (fromField instanceof IntegerField) {
+                DecimalFormat decimalFormat;
+                if (Strings.isNotEmpty(typeFormatter)) {
+                    decimalFormat = new DecimalFormat(typeFormatter);
+                }
+                else {
+                    decimalFormat = new DecimalFormat();
+                }
+                return new IntegerExtractField((IntegerField) fromField, defaultValue, formatter, decimalFormat);
+            }
+            if (fromField instanceof DateTimeField) {
+                DateTimeFormatter dateTimeFormatter;
+                if (Strings.isNotEmpty(typeFormatter)) {
+                    dateTimeFormatter = DateTimeFormatter.ofPattern(typeFormatter);
+                }
+                else {
+                    dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                }
+                return new DateTimeExtractField((DateTimeField) fromField, defaultValue, formatter, dateTimeFormatter);
+            }
+            if (fromField instanceof DateField) {
+                DateTimeFormatter dateTimeFormatter;
+                if (Strings.isNotEmpty(typeFormatter)) {
+                    dateTimeFormatter = DateTimeFormatter.ofPattern(typeFormatter);
+                }
+                else {
+                    dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                }
+                return new DateExtractField((DateField) fromField, defaultValue, formatter, dateTimeFormatter);
+            }
+            return new ExtractField() {
+                @Override
+                public String tr(Glob from) {
+                    Object data = from.getValue(fromField);
+                    if (data == null) {
+                        return defaultValue;
+                    }
+                    return formatter.format(data.toString());
+                }
+            };
+        }
+
+
+        class DecimalExtractField implements ExtractField {
+            private final DoubleField fromField;
+            private final String defaultValue;
+            private final Formatter formatter;
+            private final DecimalFormat decimalFormat;
+
+            public DecimalExtractField(DoubleField fromField, String defaultValue, Formatter formatter, DecimalFormat decimalFormat) {
+                this.fromField = fromField;
+                this.defaultValue = defaultValue;
+                this.formatter = formatter;
+                this.decimalFormat = decimalFormat;
+            }
+
+            @Override
+            public String tr(Glob from) {
+                Double data = from.get(fromField);
+                if (data == null) {
+                    return defaultValue;
+                }
+                return formatter.format(decimalFormat.format(data));
+            }
+        }
+
+        class LongExtractField implements ExtractField {
+            private final LongField fromField;
+            private final String defaultValue;
+            private final Formatter formatter;
+            private final DecimalFormat decimalFormat;
+
+            public LongExtractField(LongField fromField, String defaultValue, Formatter formatter, DecimalFormat decimalFormat) {
+                this.fromField = fromField;
+                this.defaultValue = defaultValue;
+                this.formatter = formatter;
+                this.decimalFormat = decimalFormat;
+            }
+
+            @Override
+            public String tr(Glob from) {
+                Long data = from.get(fromField);
+                if (data == null) {
+                    return defaultValue;
+                }
+                return formatter.format(decimalFormat.format(data));
+            }
+        }
+
+        class IntegerExtractField implements ExtractField {
+            private final IntegerField fromField;
+            private final String defaultValue;
+            private final Formatter formatter;
+            private final DecimalFormat decimalFormat;
+
+            public IntegerExtractField(IntegerField fromField, String defaultValue, Formatter formatter, DecimalFormat decimalFormat) {
+                this.fromField = fromField;
+                this.defaultValue = defaultValue;
+                this.formatter = formatter;
+                this.decimalFormat = decimalFormat;
+            }
+
+            @Override
+            public String tr(Glob from) {
+                Integer data = from.get(fromField);
+                if (data == null) {
+                    return defaultValue;
+                }
+                return formatter.format(decimalFormat.format(data));
+            }
+        }
+
+        class DateTimeExtractField implements ExtractField {
+            private final DateTimeField fromField;
+            private final String defaultValue;
+            private final Formatter formatter;
+            private final DateTimeFormatter dateTimeFormatter;
+
+            public DateTimeExtractField(DateTimeField fromField, String defaultValue, Formatter formatter, DateTimeFormatter dateTimeFormatter) {
+                this.fromField = fromField;
+                this.defaultValue = defaultValue;
+                this.formatter = formatter;
+                this.dateTimeFormatter = dateTimeFormatter;
+            }
+
+            @Override
+            public String tr(Glob from) {
+                ZonedDateTime data = from.get(fromField);
+                if (data == null) {
+                    return defaultValue;
+                }
+                return formatter.format(dateTimeFormatter.format(data));
+            }
+        }
+
+        class DateExtractField implements ExtractField {
+            private final DateField fromField;
+            private final String defaultValue;
+            private final Formatter formatter;
+            private final DateTimeFormatter dateTimeFormatter;
+
+            public DateExtractField(DateField fromField, String defaultValue, Formatter formatter, DateTimeFormatter dateTimeFormatter) {
+                this.fromField = fromField;
+                this.defaultValue = defaultValue;
+                this.formatter = formatter;
+                this.dateTimeFormatter = dateTimeFormatter;
+            }
+
+            @Override
+            public String tr(Glob from) {
+                LocalDate data = from.get(fromField);
+                if (data == null) {
+                    return defaultValue;
+                }
+                return formatter.format(dateTimeFormatter.format(data));
+            }
+        }
+    }
+
+    static class StringExtractField  implements ExtractField {
         private final StringField fromField;
         private final String defaultValue;
         private final Formatter formatter;
 
-        public ExtractField(StringField fromField, String defaultValue, Formatter formatter) {
+        public StringExtractField(StringField fromField, String defaultValue, Formatter formatter) {
             this.formatter = formatter;
             this.fromField = fromField;
             this.defaultValue = defaultValue;
         }
+
 
         public String tr(Glob from) {
             String str = from.get(fromField);
