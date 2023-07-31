@@ -339,6 +339,25 @@ public class ImportFileTest {
     }
 
     @Test
+    public void testDisableQuote() throws IOException {
+        ImportFile importFile = new ImportFile();
+        importFile.withSeparator(',')
+                .withQuoteChar(null);
+
+        List<Glob> imports = new ArrayList<>();
+        importFile.importContent(new StringReader(
+                """
+                PRODUCT_ID,sku
+                120201130," ""XXX" "Y"""
+        ), new Consumer<Glob>() {
+            public void accept(Glob glob) {
+                imports.add(glob);
+            }
+        }, Type.TYPE);
+
+    }
+
+    @Test
     public void renameHeader() throws IOException {
         ImportFile importFile = new ImportFile();
         importFile.withSeparator(',');

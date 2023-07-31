@@ -3,6 +3,7 @@ package org.globsframework.export;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.csv.QuoteMode;
 import org.apache.commons.io.ByteOrderMark;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.poi.ss.usermodel.*;
@@ -1058,6 +1059,9 @@ public class ImportFile {
                             return strings.size();
                         }
 
+                        public String toString() {
+                            return strings.toString();
+                        }
                     });
                 } else {
                     LOGGER.info("Ignore empty line");
@@ -1131,6 +1135,10 @@ public class ImportFile {
                     public int size() {
                         return maxSize;
                     }
+
+                    public String toString() {
+                        return realLine.toString();
+                    }
                 });
             }
         }
@@ -1183,20 +1191,22 @@ public class ImportFile {
             this.strLine = strLine;
         }
 
-        @Override
         public Date getAsDate(int index) {
             return null;
         }
 
-        @Override
         public String getAt(int index) {
             return elements[index].split(strLine);
         }
 
-        @Override
         public int size() {
             return elements.length;
         }
+
+        public String toString() {
+            return strLine;
+        }
+
     }
 
     private static class SplittedWithHeaderCsvLine implements CsvLine {
@@ -1210,12 +1220,10 @@ public class ImportFile {
             this.strLine = strLine;
         }
 
-        @Override
         public Date getAsDate(int index) {
             return null;
         }
 
-        @Override
         public String getAt(int index) {
             if (index == 0) {
                 return headerName;
@@ -1223,9 +1231,12 @@ public class ImportFile {
             return elements[index - 1].split(strLine);
         }
 
-        @Override
         public int size() {
             return elements.length + 1;
+        }
+
+        public String toString() {
+            return strLine;
         }
     }
 
