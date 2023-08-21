@@ -899,7 +899,7 @@ public class ImportFile {
                 dateTimeFormatter = DateTimeFormatter.ofPattern(s).withZone(zoneId);
             } else {
                 zoneId = ZoneId.systemDefault();
-                dateTimeFormatter = DateTimeFormatter.ISO_DATE.withZone(zoneId);
+                dateTimeFormatter = DateTimeFormatter.ISO_DATE_TIME.withZone(zoneId);
             }
         }
 
