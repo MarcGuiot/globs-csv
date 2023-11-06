@@ -1,7 +1,7 @@
 package org.globsframework.export;
 
 import org.globsframework.export.annotation.*;
-import org.globsframework.metamodel.Field;
+import org.globsframework.metamodel.fields.Field;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.annotations.IsDate;
 import org.globsframework.metamodel.fields.*;
