@@ -7,10 +7,7 @@ import org.globsframework.export.annotation.ReNamedMappingExport_;
 import org.globsframework.metamodel.GlobType;
 import org.globsframework.metamodel.GlobTypeLoaderFactory;
 import org.globsframework.metamodel.annotations.FieldNameAnnotation;
-import org.globsframework.metamodel.fields.DateField;
-import org.globsframework.metamodel.fields.DateTimeField;
-import org.globsframework.metamodel.fields.IntegerField;
-import org.globsframework.metamodel.fields.StringField;
+import org.globsframework.metamodel.fields.*;
 import org.globsframework.model.Glob;
 import org.junit.Assert;
 import org.junit.Test;
@@ -18,6 +15,7 @@ import org.junit.Test;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -481,6 +479,48 @@ public class ImportFileTest {
         static {
             GlobTypeLoaderFactory.create(Type.class, true).load();
         }
+    }
+
+
+    @Test
+    public void testReadStringArray() throws IOException {
+        ImportFile importFile = new ImportFile();
+        importFile.withSeparator(';');
+        List<Glob> data = new ArrayList<>();
+        importFile.importContent(new StringReader("f1\na,b,c"), data::add, ObjectWithArray.TYPE);
+        Assert.assertFalse(data.isEmpty());
+        final String[] values = data.get(0).get(ObjectWithArray.f1);
+        Assert.assertEquals(3, values.length);
+        Assert.assertEquals("a", values[0]);
+        Assert.assertEquals("b", values[1]);
+        Assert.assertEquals("c", values[2]);
+    }
+
+
+    public static class ObjectWithArray {
+        public static GlobType TYPE;
+
+        public static StringArrayField f1;
+
+        static {
+            GlobTypeLoaderFactory.create(ObjectWithArray.class).load();
+        }
+    }
+
+    // test done because the string contain \u0000 and it is forbidden in postgresql
+    @Test
+    public void importBinaryFile() throws IOException {
+        ImportFile importFile = new ImportFile();
+        importFile.withSeparator(';');
+        final ImportFile.Importer importer = importFile.create(getClass().getResourceAsStream("/blankImage.jpg"));
+        final GlobType type = importer.getType();
+        Assert.assertNotNull(type.describe());
+        final byte[] bytes = type.describe().getBytes(StandardCharsets.UTF_8);
+        final String s = new String(bytes, StandardCharsets.UTF_8);
+        Assert.assertEquals(type.describe(), s);
+        Assert.assertTrue(type.describe().contains("\u0000"));
+        final String replace = type.describe().replace('\u0000', ' ');
+        Assert.assertFalse(replace.contains("\u0000"));
     }
 
     @Test

@@ -3,7 +3,6 @@ package org.globsframework.export;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.apache.commons.csv.QuoteMode;
 import org.apache.commons.io.ByteOrderMark;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.poi.ss.usermodel.*;
@@ -968,18 +967,27 @@ public class ImportFile {
         final StringArrayField field;
         final int index;
         private boolean trim;
+        private String separator;
 
         StringArrayFieldReader(StringArrayField field, int index, boolean trim) {
             this.field = field;
             this.index = index;
             this.trim = trim;
+            separator = field.findOptAnnotation(CsvValueSeparator.KEY)
+                    .map(CsvValueSeparator.SEPARATOR)
+                    .orElse(",");
         }
 
         public void read(MutableGlob mutableGlob, CsvLine record) {
             String s = getValue(record, index, trim);
             if (Strings.isNotEmpty(s)) {
-                String[] split = s.split(",");
-                mutableGlob.set(field, split);
+                String[] split = s.split(separator);
+                if (trim) {
+                    mutableGlob.set(field, Arrays.stream(split).map(String::trim)
+                            .toArray(String[]::new));
+                } else {
+                    mutableGlob.set(field, split);
+                }
             }
         }
     }

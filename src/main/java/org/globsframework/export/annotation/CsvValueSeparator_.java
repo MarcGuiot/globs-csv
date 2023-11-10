@@ -9,9 +9,9 @@ import java.lang.annotation.RetentionPolicy;
 @Retention(RetentionPolicy.RUNTIME)
 @java.lang.annotation.Target({ElementType.FIELD})
 
-public @interface CsvSeparator_ {
+public @interface CsvValueSeparator_ {
 
     char value();
 
-    GlobType TYPE = CsvSeparator.TYPE;
+    GlobType TYPE = CsvValueSeparator.TYPE;
 }
