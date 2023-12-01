@@ -14,6 +14,7 @@ import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAccessor;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -302,6 +303,10 @@ public class RealReformater implements Reformater {
         String format(String value);
     }
 
+    interface AnyFormater<T> {
+        String format(T value);
+    }
+
     static class FormatMerger implements Merger {
         private final ExtractField extractField;
 
@@ -448,32 +453,32 @@ public class RealReformater implements Reformater {
                 return new StringExtractField((StringField) fromField, defaultValue, formatter);
             }
             if (fromField instanceof DoubleField) {
-                DecimalFormat decimalFormat;
+                AnyFormater<Object> decimalFormat;
                 if (Strings.isNotEmpty(typeFormatter)) {
-                    decimalFormat = new DecimalFormat(typeFormatter);
+                    decimalFormat = new DecimalFormat(typeFormatter)::format;
                 }
                 else {
-                    decimalFormat = new DecimalFormat();
+                    decimalFormat = value -> Double.toString((Double) value);
                 }
                 return new DecimalExtractField((DoubleField) fromField, defaultValue, formatter, decimalFormat);
             }
             if (fromField instanceof LongField) {
-                DecimalFormat decimalFormat;
+                AnyFormater<Object> decimalFormat;
                 if (Strings.isNotEmpty(typeFormatter)) {
-                    decimalFormat = new DecimalFormat(typeFormatter);
+                    decimalFormat = new DecimalFormat(typeFormatter)::format;
                 }
                 else {
-                    decimalFormat = new DecimalFormat();
+                    decimalFormat = value -> Long.toString((Long) value);
                 }
                 return new LongExtractField((LongField) fromField, defaultValue, formatter, decimalFormat);
             }
             if (fromField instanceof IntegerField) {
-                DecimalFormat decimalFormat;
+                AnyFormater<Object> decimalFormat;
                 if (Strings.isNotEmpty(typeFormatter)) {
-                    decimalFormat = new DecimalFormat(typeFormatter);
+                    decimalFormat = new DecimalFormat(typeFormatter)::format;
                 }
                 else {
-                    decimalFormat = new DecimalFormat();
+                    decimalFormat = value -> Integer.toString((Integer) value);
                 }
                 return new IntegerExtractField((IntegerField) fromField, defaultValue, formatter, decimalFormat);
             }
@@ -485,7 +490,7 @@ public class RealReformater implements Reformater {
                 else {
                     dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                 }
-                return new DateTimeExtractField((DateTimeField) fromField, defaultValue, formatter, dateTimeFormatter);
+                return new DateTimeExtractField((DateTimeField) fromField, defaultValue, formatter, dateTimeFormatter::format);
             }
             if (fromField instanceof DateField) {
                 DateTimeFormatter dateTimeFormatter;
@@ -495,7 +500,7 @@ public class RealReformater implements Reformater {
                 else {
                     dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                 }
-                return new DateExtractField((DateField) fromField, defaultValue, formatter, dateTimeFormatter);
+                return new DateExtractField((DateField) fromField, defaultValue, formatter, dateTimeFormatter::format);
             }
             return new ExtractField() {
                 @Override
@@ -514,9 +519,9 @@ public class RealReformater implements Reformater {
             private final DoubleField fromField;
             private final String defaultValue;
             private final Formatter formatter;
-            private final DecimalFormat decimalFormat;
+            private final AnyFormater<Object> decimalFormat;
 
-            public DecimalExtractField(DoubleField fromField, String defaultValue, Formatter formatter, DecimalFormat decimalFormat) {
+            public DecimalExtractField(DoubleField fromField, String defaultValue, Formatter formatter, AnyFormater<Object> decimalFormat) {
                 this.fromField = fromField;
                 this.defaultValue = defaultValue;
                 this.formatter = formatter;
@@ -537,9 +542,9 @@ public class RealReformater implements Reformater {
             private final LongField fromField;
             private final String defaultValue;
             private final Formatter formatter;
-            private final DecimalFormat decimalFormat;
+            private final AnyFormater<Object> decimalFormat;
 
-            public LongExtractField(LongField fromField, String defaultValue, Formatter formatter, DecimalFormat decimalFormat) {
+            public LongExtractField(LongField fromField, String defaultValue, Formatter formatter, AnyFormater<Object> decimalFormat) {
                 this.fromField = fromField;
                 this.defaultValue = defaultValue;
                 this.formatter = formatter;
@@ -560,9 +565,9 @@ public class RealReformater implements Reformater {
             private final IntegerField fromField;
             private final String defaultValue;
             private final Formatter formatter;
-            private final DecimalFormat decimalFormat;
+            private final AnyFormater<Object> decimalFormat;
 
-            public IntegerExtractField(IntegerField fromField, String defaultValue, Formatter formatter, DecimalFormat decimalFormat) {
+            public IntegerExtractField(IntegerField fromField, String defaultValue, Formatter formatter, AnyFormater<Object> decimalFormat) {
                 this.fromField = fromField;
                 this.defaultValue = defaultValue;
                 this.formatter = formatter;
@@ -583,9 +588,9 @@ public class RealReformater implements Reformater {
             private final DateTimeField fromField;
             private final String defaultValue;
             private final Formatter formatter;
-            private final DateTimeFormatter dateTimeFormatter;
+            private final AnyFormater<TemporalAccessor> dateTimeFormatter;
 
-            public DateTimeExtractField(DateTimeField fromField, String defaultValue, Formatter formatter, DateTimeFormatter dateTimeFormatter) {
+            public DateTimeExtractField(DateTimeField fromField, String defaultValue, Formatter formatter, AnyFormater<TemporalAccessor> dateTimeFormatter) {
                 this.fromField = fromField;
                 this.defaultValue = defaultValue;
                 this.formatter = formatter;
@@ -606,9 +611,9 @@ public class RealReformater implements Reformater {
             private final DateField fromField;
             private final String defaultValue;
             private final Formatter formatter;
-            private final DateTimeFormatter dateTimeFormatter;
+            private final AnyFormater<TemporalAccessor> dateTimeFormatter;
 
-            public DateExtractField(DateField fromField, String defaultValue, Formatter formatter, DateTimeFormatter dateTimeFormatter) {
+            public DateExtractField(DateField fromField, String defaultValue, Formatter formatter, AnyFormater<TemporalAccessor> dateTimeFormatter) {
                 this.fromField = fromField;
                 this.defaultValue = defaultValue;
                 this.formatter = formatter;
