@@ -224,7 +224,7 @@ public class RealReformater implements Reformater {
             StringBuilder data = new StringBuilder();
             for (ExtractField extractField : extractFields) {
                 final String tr = extractField.tr(input);
-                if (tr != null) {
+                if (Strings.isNotEmpty(tr)) { // should be manage using defaultValueIfEmpty but front do not differ null and empty.
                     if (data.isEmpty()) {
                         if (!first.isEmpty()) {
                             data.append(first);
