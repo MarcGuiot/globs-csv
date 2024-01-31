@@ -549,7 +549,7 @@ public class ExportBySize {
                 if (Strings.isNotEmpty(exportBySize.defaultDateFormat)) {
                     format = DateTimeFormatter.ofPattern(exportBySize.defaultDateFormat);
                 } else {
-                    LOGGER.warn("No date format, export to yyyy/MM/dd");
+                    LOGGER.warn("No date format for " + field.getName() + " , export to yyyy/MM/dd");
                     format = DateTimeFormatter.ofPattern("yyyy/MM/dd");
                 }
             } else {
