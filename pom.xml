@@ -5,7 +5,7 @@
     <packaging>jar</packaging>
     <artifactId>export</artifactId>
     <name>import/export</name>
-    <version>3.3-SNAPSHOT</version>
+    <version>4.0-SNAPSHOT</version>
 
     <repositories>
         <repository>
@@ -62,12 +62,12 @@
         <dependency>
             <groupId>org.globsframework</groupId>
             <artifactId>globs</artifactId>
-            <version>3.3-SNAPSHOT</version>
+            <version>4.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.globsframework</groupId>
             <artifactId>globs-gson</artifactId>
-            <version>3.3-SNAPSHOT</version>
+            <version>4.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -96,7 +96,7 @@
         <dependency>
             <groupId>org.globsframework</groupId>
             <artifactId>globs-xml</artifactId>
-            <version>3.3-SNAPSHOT</version>
+            <version>4.0-SNAPSHOT</version>
             <scope>test</scope>
         </dependency>
         <dependency>
