@@ -48,7 +48,7 @@ public class ComplexImporter {
     }
 
     public static ConvertFromStr convert(Field field, boolean trim, boolean emptyIsNotNull) {
-        return field.safeVisit(new FieldVisitor.AbstractFieldVisitor() {
+        return field.safeAccept(new FieldVisitor.AbstractFieldVisitor() {
             ConvertFromStr convert;
 
             @Override

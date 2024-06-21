@@ -729,7 +729,7 @@ public class ImportFile {
         }
 
         public void declare(Field field, Integer index) {
-            field.safeVisit(new FieldVisitor.AbstractWithErrorVisitor() {
+            field.safeAccept(new FieldVisitor.AbstractWithErrorVisitor() {
                 public void visitInteger(IntegerField field) throws Exception {
                     fieldReaders.add(new IntegerFieldReader(field, index, trim));
                 }

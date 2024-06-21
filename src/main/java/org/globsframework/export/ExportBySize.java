@@ -288,7 +288,7 @@ public class ExportBySize {
                         if (padding == null) {
                             LOGGER.warn("Field Ignored " + field.getFullName());
                         } else {
-                            fieldWrites.add(field.safeVisit(new FieldWriterVisitor(exportBySize, padding, name)).fieldWrite);
+                            fieldWrites.add(field.safeAccept(new FieldWriterVisitor(exportBySize, padding, name)).fieldWrite);
                         }
                     }
                 }
