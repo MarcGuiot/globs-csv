@@ -1,7 +1,7 @@
 package org.globsframework.csv.annotation;
 
-import org.globsframework.metamodel.GlobModel;
-import org.globsframework.metamodel.impl.DefaultGlobModel;
+import org.globsframework.core.metamodel.GlobModel;
+import org.globsframework.core.metamodel.impl.DefaultGlobModel;
 
 public class AllAnnotations {
     public static GlobModel MODEL =

@@ -1,12 +1,11 @@
 package org.globsframework.csv;
 
+import org.globsframework.core.metamodel.GlobType;
+import org.globsframework.core.metamodel.annotations.IsDate;
+import org.globsframework.core.metamodel.fields.*;
+import org.globsframework.core.model.Glob;
+import org.globsframework.core.utils.Strings;
 import org.globsframework.csv.annotation.*;
-import org.globsframework.metamodel.fields.Field;
-import org.globsframework.metamodel.GlobType;
-import org.globsframework.metamodel.annotations.IsDate;
-import org.globsframework.metamodel.fields.*;
-import org.globsframework.model.Glob;
-import org.globsframework.utils.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -395,8 +394,7 @@ public class ExportBySize {
                     value = value.replaceAll("" + exportBySize.escape, "" + exportBySize.escape + "" + exportBySize.escape);
                 }
                 value = exportBySize.escape + value + exportBySize.escape;
-            }
-            else {
+            } else {
                 if (value.indexOf(exportBySize.escape) != -1) {
                     value = value.replaceAll("" + exportBySize.escape, "" + exportBySize.escape + "" + exportBySize.escape);
                     value = exportBySize.escape + value + exportBySize.escape;

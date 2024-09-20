@@ -1,6 +1,6 @@
 package org.globsframework.csv.annotation;
 
-import org.globsframework.metamodel.GlobType;
+import org.globsframework.core.metamodel.GlobType;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -12,7 +12,7 @@ public @interface ReNamedExport_ {
 
     ReNamedMappingExport_[] multi() default {};
 
-    String value() default  "";
+    String value() default "";
 
     GlobType TYPE = ReNamedExport.TYPE;
 }

@@ -1,4 +1,5 @@
-This library is used to read csv using apache.commons-csv and excel using apache.poi. It also read text format with prefix and with fix lenght field like : 
+This library is used to read csv using apache.commons-csv and excel using apache.poi. It also read text format with
+prefix and with fix lenght field like :
 
 ```
                         TYPE_Ava1va2
@@ -11,7 +12,8 @@ This library is used to read csv using apache.commons-csv and excel using apache
                         TYPE_A a4 a2
 ```
 
-To read it the globType look like : 
+To read it the globType look like :
+
 ```
     public static class Root {
         public static GlobType TYPE;
@@ -46,7 +48,9 @@ To read it the globType look like :
     }
 ...
 ```
-And the reader code 
+
+And the reader code
+
 ```
         ImportFile importFile = new ImportFile();
         ImportFile.Importer multi = importFile.createMulti(new StringReader(data), Root.TYPE);

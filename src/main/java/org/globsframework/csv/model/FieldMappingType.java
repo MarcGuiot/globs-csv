@@ -1,12 +1,12 @@
 package org.globsframework.csv.model;
 
+import org.globsframework.core.metamodel.GlobType;
+import org.globsframework.core.metamodel.GlobTypeLoaderFactory;
+import org.globsframework.core.metamodel.annotations.Target;
+import org.globsframework.core.metamodel.annotations.Targets;
+import org.globsframework.core.metamodel.fields.*;
+import org.globsframework.core.model.Glob;
 import org.globsframework.json.annottations.IsJsonContentAnnotation;
-import org.globsframework.metamodel.GlobType;
-import org.globsframework.metamodel.GlobTypeLoaderFactory;
-import org.globsframework.metamodel.annotations.Target;
-import org.globsframework.metamodel.annotations.Targets;
-import org.globsframework.metamodel.fields.*;
-import org.globsframework.model.Glob;
 
 public class FieldMappingType {
     public static GlobType TYPE;

@@ -1,10 +1,10 @@
 package org.globsframework.csv.model;
 
-import org.globsframework.metamodel.GlobType;
-import org.globsframework.metamodel.GlobTypeLoaderFactory;
-import org.globsframework.metamodel.annotations.Target;
-import org.globsframework.metamodel.fields.GlobArrayField;
-import org.globsframework.metamodel.fields.StringField;
+import org.globsframework.core.metamodel.GlobType;
+import org.globsframework.core.metamodel.GlobTypeLoaderFactory;
+import org.globsframework.core.metamodel.annotations.Target;
+import org.globsframework.core.metamodel.fields.GlobArrayField;
+import org.globsframework.core.metamodel.fields.StringField;
 
 public class CsvImportType {
     public static GlobType TYPE;

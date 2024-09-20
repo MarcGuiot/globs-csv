@@ -1,13 +1,13 @@
 package org.globsframework.csv;
 
+import org.globsframework.core.metamodel.GlobType;
+import org.globsframework.core.metamodel.GlobTypeLoaderFactory;
+import org.globsframework.core.metamodel.annotations.Target;
+import org.globsframework.core.metamodel.fields.GlobArrayField;
+import org.globsframework.core.metamodel.fields.GlobField;
+import org.globsframework.core.metamodel.fields.StringField;
+import org.globsframework.core.model.Glob;
 import org.globsframework.csv.annotation.CsvHeader_;
-import org.globsframework.metamodel.GlobType;
-import org.globsframework.metamodel.GlobTypeLoaderFactory;
-import org.globsframework.metamodel.annotations.Target;
-import org.globsframework.metamodel.fields.GlobArrayField;
-import org.globsframework.metamodel.fields.GlobField;
-import org.globsframework.metamodel.fields.StringField;
-import org.globsframework.model.Glob;
 import org.junit.Assert;
 import org.junit.Test;
 

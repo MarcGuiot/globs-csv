@@ -6,16 +6,15 @@ import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.ByteOrderMark;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.poi.ss.usermodel.*;
+import org.globsframework.core.metamodel.GlobType;
+import org.globsframework.core.metamodel.GlobTypeBuilder;
+import org.globsframework.core.metamodel.fields.*;
+import org.globsframework.core.metamodel.impl.DefaultGlobTypeBuilder;
+import org.globsframework.core.metamodel.utils.GlobTypeUtils;
+import org.globsframework.core.model.Glob;
+import org.globsframework.core.model.MutableGlob;
+import org.globsframework.core.utils.Strings;
 import org.globsframework.csv.annotation.*;
-import org.globsframework.metamodel.fields.Field;
-import org.globsframework.metamodel.GlobType;
-import org.globsframework.metamodel.GlobTypeBuilder;
-import org.globsframework.metamodel.fields.*;
-import org.globsframework.metamodel.impl.DefaultGlobTypeBuilder;
-import org.globsframework.metamodel.utils.GlobTypeUtils;
-import org.globsframework.model.Glob;
-import org.globsframework.model.MutableGlob;
-import org.globsframework.utils.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -284,7 +283,7 @@ public class ImportFile {
         }
         DefaultDataRead dataRead = new DefaultDataRead(parse, trim, reNameFrom);
         if (globType == null) {
-                globType = dataRead.createDefault(defaultGlobTypeName);
+            globType = dataRead.createDefault(defaultGlobTypeName);
         }
         if (transformer != null && !transformer.isEmpty()) {
             reformater = new RealReformater(globType, transformer, propagateInFields, externalVariables, dataAccessFactory);
@@ -520,8 +519,7 @@ public class ImportFile {
                     }
                 }
             };
-        }
-        else {
+        } else {
             throw new RuntimeException("multi with marker of different size not managed.");
         }
     }
@@ -663,7 +661,7 @@ public class ImportFile {
         }
 
         GlobType createDefault(String defaultGlobTypeName) {
-            GlobTypeBuilder globTypeBuilder = new DefaultGlobTypeBuilder(defaultGlobTypeName!= null ? defaultGlobTypeName : "DefaultCsv");
+            GlobTypeBuilder globTypeBuilder = new DefaultGlobTypeBuilder(defaultGlobTypeName != null ? defaultGlobTypeName : "DefaultCsv");
             Map<String, Integer> headerMap = parse.getHeader();
             for (String s1 : headerMap.keySet()) {
                 globTypeBuilder.declareStringField(s1);
@@ -1048,7 +1046,7 @@ public class ImportFile {
             for (CSVRecord strings : parse) {
                 boolean isValide = false;
                 for (String string : strings) {
-                    if (Strings.isNotEmpty(string)){
+                    if (Strings.isNotEmpty(string)) {
                         isValide = true;
                         break;
                     }

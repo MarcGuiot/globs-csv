@@ -1,13 +1,12 @@
 package org.globsframework.csv;
 
+import org.globsframework.core.metamodel.GlobType;
+import org.globsframework.core.metamodel.GlobTypeBuilder;
+import org.globsframework.core.metamodel.fields.*;
+import org.globsframework.core.model.Glob;
+import org.globsframework.core.model.MutableGlob;
+import org.globsframework.core.utils.Strings;
 import org.globsframework.csv.annotation.ExportDateFormat;
-import org.globsframework.metamodel.fields.Field;
-import org.globsframework.metamodel.GlobType;
-import org.globsframework.metamodel.GlobTypeBuilder;
-import org.globsframework.metamodel.fields.*;
-import org.globsframework.model.Glob;
-import org.globsframework.model.MutableGlob;
-import org.globsframework.utils.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -372,8 +371,7 @@ public class ComplexImporter {
         public Object convert(String s) {
             if (Strings.isNotEmpty(s)) {
                 return Double.parseDouble(s.trim());
-            }
-            else {
+            } else {
                 return null;
             }
         }
@@ -393,8 +391,7 @@ public class ComplexImporter {
         public Object convert(String s) {
             if (emptyIsNotNull || Strings.isNotEmpty(s)) {
                 return s;
-            }
-            else {
+            } else {
                 return null;
             }
         }
@@ -410,8 +407,7 @@ public class ComplexImporter {
         public Object convert(String s) {
             if (Strings.isNotEmpty(s)) {
                 return new BigDecimal(s);
-            }
-            else {
+            } else {
                 return null;
             }
         }

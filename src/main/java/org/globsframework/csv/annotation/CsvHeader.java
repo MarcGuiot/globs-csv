@@ -1,12 +1,12 @@
 package org.globsframework.csv.annotation;
 
-import org.globsframework.metamodel.GlobType;
-import org.globsframework.metamodel.GlobTypeLoaderFactory;
-import org.globsframework.metamodel.annotations.GlobCreateFromAnnotation;
-import org.globsframework.metamodel.annotations.InitUniqueKey;
-import org.globsframework.metamodel.fields.BooleanField;
-import org.globsframework.metamodel.fields.StringField;
-import org.globsframework.model.Key;
+import org.globsframework.core.metamodel.GlobType;
+import org.globsframework.core.metamodel.GlobTypeLoaderFactory;
+import org.globsframework.core.metamodel.annotations.GlobCreateFromAnnotation;
+import org.globsframework.core.metamodel.annotations.InitUniqueKey;
+import org.globsframework.core.metamodel.fields.BooleanField;
+import org.globsframework.core.metamodel.fields.StringField;
+import org.globsframework.core.model.Key;
 
 public class CsvHeader {
     public static GlobType TYPE;

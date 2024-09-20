@@ -1,14 +1,13 @@
 package org.globsframework.csv;
 
+import org.globsframework.core.metamodel.GlobType;
+import org.globsframework.core.metamodel.fields.*;
+import org.globsframework.core.metamodel.impl.DefaultGlobTypeBuilder;
+import org.globsframework.core.model.Glob;
+import org.globsframework.core.model.MutableGlob;
+import org.globsframework.core.utils.Strings;
 import org.globsframework.csv.model.FieldMappingType;
 import org.globsframework.json.GSonUtils;
-import org.globsframework.metamodel.fields.Field;
-import org.globsframework.metamodel.GlobType;
-import org.globsframework.metamodel.fields.*;
-import org.globsframework.metamodel.impl.DefaultGlobTypeBuilder;
-import org.globsframework.model.Glob;
-import org.globsframework.model.MutableGlob;
-import org.globsframework.utils.Strings;
 
 import java.text.DecimalFormat;
 import java.time.LocalDate;
@@ -244,8 +243,7 @@ public class RealReformater implements Reformater {
                 if (!last.isEmpty() && addLast) {
                     data.append(last);
                 }
-            }
-            else {
+            } else {
                 data.append(last);
             }
             if (!data.isEmpty()) {
@@ -456,8 +454,7 @@ public class RealReformater implements Reformater {
                 AnyFormater<Object> decimalFormat;
                 if (Strings.isNotEmpty(typeFormatter)) {
                     decimalFormat = new DecimalFormat(typeFormatter)::format;
-                }
-                else {
+                } else {
                     decimalFormat = value -> Double.toString((Double) value);
                 }
                 return new DecimalExtractField((DoubleField) fromField, defaultValue, formatter, decimalFormat);
@@ -466,8 +463,7 @@ public class RealReformater implements Reformater {
                 AnyFormater<Object> decimalFormat;
                 if (Strings.isNotEmpty(typeFormatter)) {
                     decimalFormat = new DecimalFormat(typeFormatter)::format;
-                }
-                else {
+                } else {
                     decimalFormat = value -> Long.toString((Long) value);
                 }
                 return new LongExtractField((LongField) fromField, defaultValue, formatter, decimalFormat);
@@ -476,8 +472,7 @@ public class RealReformater implements Reformater {
                 AnyFormater<Object> decimalFormat;
                 if (Strings.isNotEmpty(typeFormatter)) {
                     decimalFormat = new DecimalFormat(typeFormatter)::format;
-                }
-                else {
+                } else {
                     decimalFormat = value -> Integer.toString((Integer) value);
                 }
                 return new IntegerExtractField((IntegerField) fromField, defaultValue, formatter, decimalFormat);
@@ -486,8 +481,7 @@ public class RealReformater implements Reformater {
                 DateTimeFormatter dateTimeFormatter;
                 if (Strings.isNotEmpty(typeFormatter)) {
                     dateTimeFormatter = DateTimeFormatter.ofPattern(typeFormatter);
-                }
-                else {
+                } else {
                     dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                 }
                 return new DateTimeExtractField((DateTimeField) fromField, defaultValue, formatter, dateTimeFormatter::format);
@@ -496,8 +490,7 @@ public class RealReformater implements Reformater {
                 DateTimeFormatter dateTimeFormatter;
                 if (Strings.isNotEmpty(typeFormatter)) {
                     dateTimeFormatter = DateTimeFormatter.ofPattern(typeFormatter);
-                }
-                else {
+                } else {
                     dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                 }
                 return new DateExtractField((DateField) fromField, defaultValue, formatter, dateTimeFormatter::format);
@@ -631,7 +624,7 @@ public class RealReformater implements Reformater {
         }
     }
 
-    static class StringExtractField  implements ExtractField {
+    static class StringExtractField implements ExtractField {
         private final StringField fromField;
         private final String defaultValue;
         private final Formatter formatter;

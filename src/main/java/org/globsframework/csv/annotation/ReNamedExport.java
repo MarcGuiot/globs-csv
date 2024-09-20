@@ -1,16 +1,16 @@
 package org.globsframework.csv.annotation;
 
-import org.globsframework.metamodel.fields.Field;
-import org.globsframework.metamodel.GlobType;
-import org.globsframework.metamodel.GlobTypeLoaderFactory;
-import org.globsframework.metamodel.annotations.GlobCreateFromAnnotation;
-import org.globsframework.metamodel.annotations.InitUniqueKey;
-import org.globsframework.metamodel.annotations.Target;
-import org.globsframework.metamodel.fields.GlobArrayField;
-import org.globsframework.metamodel.fields.StringField;
-import org.globsframework.model.Glob;
-import org.globsframework.model.Key;
-import org.globsframework.utils.Strings;
+import org.globsframework.core.metamodel.GlobType;
+import org.globsframework.core.metamodel.GlobTypeLoaderFactory;
+import org.globsframework.core.metamodel.annotations.GlobCreateFromAnnotation;
+import org.globsframework.core.metamodel.annotations.InitUniqueKey;
+import org.globsframework.core.metamodel.annotations.Target;
+import org.globsframework.core.metamodel.fields.Field;
+import org.globsframework.core.metamodel.fields.GlobArrayField;
+import org.globsframework.core.metamodel.fields.StringField;
+import org.globsframework.core.model.Glob;
+import org.globsframework.core.model.Key;
+import org.globsframework.core.utils.Strings;
 
 import java.util.Arrays;
 import java.util.Optional;

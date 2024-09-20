@@ -1,15 +1,15 @@
 package org.globsframework.csv;
 
+import org.globsframework.core.metamodel.GlobType;
+import org.globsframework.core.metamodel.GlobTypeLoaderFactory;
+import org.globsframework.core.metamodel.annotations.TypedIsDate;
+import org.globsframework.core.metamodel.fields.*;
+import org.globsframework.core.model.Glob;
+import org.globsframework.core.model.MutableGlob;
+import org.globsframework.core.utils.Ref;
 import org.globsframework.csv.annotation.ExportColumnSize_;
 import org.globsframework.csv.annotation.ExportDateFormat_;
 import org.globsframework.csv.annotation.NamedExport_;
-import org.globsframework.metamodel.GlobType;
-import org.globsframework.metamodel.GlobTypeLoaderFactory;
-import org.globsframework.metamodel.annotations.TypedIsDate;
-import org.globsframework.metamodel.fields.*;
-import org.globsframework.model.Glob;
-import org.globsframework.model.MutableGlob;
-import org.globsframework.utils.Ref;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -123,7 +123,7 @@ public class ExportBySizeTest {
     }
 
     @Test
-    public void export () throws IOException {
+    public void export() throws IOException {
         String value1 = "some \ndata";
         Glob data1 = Data.TYPE.instantiate().set(Data.NAME, value1);
 
@@ -139,9 +139,9 @@ public class ExportBySizeTest {
         exportBySize.export(Stream.of(data1, data2, data3), writer);
         String expected =
                 "name,count,value,dateAsInt,date\n" +
-                "some \\ndata,,,,\n" +
-                "\"some \\n \"\"other ,data\",,,,\n" +
-                "\"some  ,data\",,,,\n";
+                        "some \\ndata,,,,\n" +
+                        "\"some \\n \"\"other ,data\",,,,\n" +
+                        "\"some  ,data\",,,,\n";
         System.out.println(expected);
         System.out.println(writer.toString());
         Assert.assertEquals(expected, writer.toString());
@@ -183,7 +183,7 @@ public class ExportBySizeTest {
                         "\"some  ,data\",,,\n";
         System.out.println(expected);
         System.out.println(writer.toString());
-            Assert.assertEquals(expected, writer.toString());
+        Assert.assertEquals(expected, writer.toString());
     }
 
 
@@ -196,6 +196,7 @@ public class ExportBySizeTest {
             GlobTypeLoaderFactory.create(DataWithArray.class).load();
         }
     }
+
     @Test
     public void withStringArray() {
 

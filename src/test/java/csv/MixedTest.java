@@ -1,18 +1,18 @@
 package org.globsframework.csv;
 
+import org.globsframework.core.metamodel.GlobType;
+import org.globsframework.core.metamodel.GlobTypeLoaderFactory;
+import org.globsframework.core.metamodel.annotations.Target;
+import org.globsframework.core.metamodel.fields.GlobArrayField;
+import org.globsframework.core.metamodel.fields.GlobField;
+import org.globsframework.core.metamodel.fields.IntegerField;
+import org.globsframework.core.metamodel.fields.StringField;
+import org.globsframework.core.model.Glob;
 import org.globsframework.csv.annotation.CsvHeader_;
-import org.globsframework.metamodel.GlobType;
-import org.globsframework.metamodel.GlobTypeLoaderFactory;
-import org.globsframework.metamodel.annotations.Target;
-import org.globsframework.metamodel.fields.GlobArrayField;
-import org.globsframework.metamodel.fields.GlobField;
-import org.globsframework.metamodel.fields.IntegerField;
-import org.globsframework.metamodel.fields.StringField;
-import org.globsframework.model.Glob;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.*;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,9 +27,8 @@ public class MixedTest {
                 "H2;vc1;vd1;ve1;vf1\n" +
                 "H2;vc2;vd2;ve2;vf2\n" +
                 "H3;a;b\n" +
-                     "H1;C;D\n" +
-                     "H2;E;F;G;H"
-        ;
+                "H1;C;D\n" +
+                "H2;E;F;G;H";
 
         ImportFile importFile = new ImportFile();
         ImportFile.Importer multi = importFile.withSeparator(';')
@@ -201,7 +200,6 @@ public class MixedTest {
             }
         }
     }
-
 
 
 }
