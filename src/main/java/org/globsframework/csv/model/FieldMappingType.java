@@ -6,7 +6,7 @@ import org.globsframework.core.metamodel.annotations.Target;
 import org.globsframework.core.metamodel.annotations.Targets;
 import org.globsframework.core.metamodel.fields.*;
 import org.globsframework.core.model.Glob;
-import org.globsframework.json.annottations.IsJsonContentAnnotation;
+import org.globsframework.json.annottations.IsJsonContent_;
 
 public class FieldMappingType {
     public static GlobType TYPE;
@@ -43,7 +43,7 @@ public class FieldMappingType {
         @Target(FromType.class)
         public static GlobArrayField inputField;
 
-        @IsJsonContentAnnotation
+        @IsJsonContent_
         public static StringField additionalParams;
 
         static {

@@ -27,7 +27,7 @@ public class ReNamedExport {
     public static Key KEY;
 
     static {
-        GlobTypeLoaderFactory.create(ReNamedExport.class)
+        GlobTypeLoaderFactory.create(ReNamedExport.class, "ReNamedExport")
                 .register(GlobCreateFromAnnotation.class, annotation -> TYPE.instantiate()
                         .set(names, Arrays.stream(((ReNamedExport_) annotation).multi())
                                 .map(Mapping::create)
@@ -64,7 +64,7 @@ public class ReNamedExport {
         public static StringField renamed;
 
         static {
-            GlobTypeLoaderFactory.create(Mapping.class).load();
+            GlobTypeLoaderFactory.create(Mapping.class, "Mapping").load();
         }
 
         public static Glob create(ReNamedMappingExport_ mapping) {

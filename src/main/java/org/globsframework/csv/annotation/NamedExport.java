@@ -16,7 +16,7 @@ public class NamedExport {
     public static Key KEY;
 
     static {
-        GlobTypeLoaderFactory.create(NamedExport.class)
+        GlobTypeLoaderFactory.create(NamedExport.class, "NamedExport")
                 .register(GlobCreateFromAnnotation.class, annotation -> TYPE.instantiate()
                         .set(names, ((NamedExport_) annotation).value())
                 )

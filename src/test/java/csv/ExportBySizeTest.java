@@ -2,7 +2,7 @@ package org.globsframework.csv;
 
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.GlobTypeLoaderFactory;
-import org.globsframework.core.metamodel.annotations.TypedIsDate;
+import org.globsframework.core.metamodel.annotations.IsDate_;
 import org.globsframework.core.metamodel.fields.*;
 import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.MutableGlob;
@@ -257,7 +257,7 @@ public class ExportBySizeTest {
         @ExportColumnSize_(12)
         public static DoubleField VALUE;
 
-        @TypedIsDate
+        @IsDate_
         @ExportDateFormat_("YYYY/MM/DD")
         @ExportColumnSize_(10)
         public static IntegerField DATE_AS_INT;

@@ -2,7 +2,7 @@ package org.globsframework.csv;
 
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.GlobTypeLoaderFactory;
-import org.globsframework.core.metamodel.annotations.FieldNameAnnotation;
+import org.globsframework.core.metamodel.annotations.FieldName_;
 import org.globsframework.core.metamodel.fields.*;
 import org.globsframework.core.model.Glob;
 import org.globsframework.csv.annotation.ExportDateFormat_;
@@ -461,7 +461,7 @@ public class ImportFileTest {
     static public class Type {
         public static GlobType TYPE;
 
-        @FieldNameAnnotation("PRODUCT_ID")
+        @FieldName_("PRODUCT_ID")
         public static IntegerField ID;
 
         @ImportEmptyStringHasEmptyStringFormat_(true)
