@@ -37,8 +37,8 @@ public class ComplexImporter {
         for (Field field : type.getFields()) {
             if (field.getDataType().isPrimive()) {
                 builder.declare(field.getName(), field.getDataType(), field.streamAnnotations().collect(Collectors.toList()));
-            } else if (field instanceof GlobArrayField) {
-                flat(builder, ((GlobArrayField<?>) field).getTargetType());
+            } else if (field instanceof GlobArrayField<?> globArrayField) {
+                flat(builder, globArrayField.getTargetType());
             } else if (field instanceof GlobField) {
                 throw new RuntimeException("Not implemented");
                 //flat(builder, ((GlobField) field).getTargetType());

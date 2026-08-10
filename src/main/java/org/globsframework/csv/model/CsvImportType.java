@@ -13,7 +13,7 @@ public class CsvImportType {
     public static final StringField separator;
 
     @Target(FieldMappingType.class)
-    public static final GlobArrayField fieldMapping;
+    public static final GlobArrayField<FieldMappingType> fieldMapping;
 
     static {
         GlobTypeBuilder typeBuilder = new DefaultGlobTypeBuilder("CsvImport");

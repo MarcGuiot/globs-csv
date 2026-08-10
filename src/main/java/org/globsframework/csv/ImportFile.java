@@ -1414,7 +1414,7 @@ public class ImportFile {
                 this.field = field;
                 this.csvHeader = csvHeader;
                 gots = new ArrayList<>();
-                targetType = ((GlobArrayField) field).getTargetType();
+                targetType = ((GlobArrayField<?>) field).getTargetType();
                 csvHeaderTrue = csvHeader.isTrue(CsvHeader.firstLineIsHeader);
             }
 
@@ -1441,7 +1441,7 @@ public class ImportFile {
             public boolean updateAndReset(MutableGlob to) {
                 isFirst = true;
                 if (!gots.isEmpty()) {
-                    to.set(((GlobArrayField) field), gots.toArray(Glob[]::new));
+                    to.set(((GlobArrayField<?>) field), gots.toArray(Glob[]::new));
                     gots.clear();
                     return true;
                 } else {

@@ -39,7 +39,7 @@ public class FieldMappingType {
         public static final GlobType TYPE;
 
         @Target(FromType.class)
-        public static final GlobArrayField from;
+        public static final GlobArrayField<FromType> from;
 
         static {
             GlobTypeBuilder typeBuilder = new DefaultGlobTypeBuilder("SumData");
@@ -54,7 +54,7 @@ public class FieldMappingType {
         public static final StringField name;
 
         @Target(FromType.class)
-        public static final GlobArrayField inputField;
+        public static final GlobArrayField<FromType> inputField;
 
         @IsJsonContent_
         public static final StringField additionalParams;
@@ -78,7 +78,7 @@ public class FieldMappingType {
         public static final StringField toStringFormater;
 
         @Target(FormatType.class)
-        public static final GlobArrayField formater;
+        public static final GlobArrayField<FormatType> formater;
 
         static {
             GlobTypeBuilder typeBuilder = new DefaultGlobTypeBuilder("FromType");
@@ -139,7 +139,7 @@ public class FieldMappingType {
         public static final GlobType TYPE;
 
         @Target(RenamedType.class)
-        public static final GlobArrayField from;
+        public static final GlobArrayField<RenamedType> from;
 
         public static final StringField template;
 

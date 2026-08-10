@@ -177,7 +177,7 @@ public class ImportStructuredCsvTest {
         public static StringField aa;
 
         @Target(L2.class)
-        public static GlobArrayField l2;
+        public static GlobArrayField<L2> l2;
 
         static {
             GlobTypeBuilder builder = GlobTypeBuilderFactory.create("L1");
@@ -195,7 +195,7 @@ public class ImportStructuredCsvTest {
         public static StringField cc;
 
         @Target(L3.class)
-        public static GlobArrayField l3;
+        public static GlobArrayField<L3> l3;
 
         static {
             GlobTypeBuilder builder = GlobTypeBuilderFactory.create("L2");

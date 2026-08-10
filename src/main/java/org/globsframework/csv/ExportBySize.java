@@ -79,18 +79,18 @@ public class ExportBySize {
         for (Field field : fields) {
             if (field.hasAnnotation(CsvHeader.KEY)) {
                 String header = field.getAnnotation(CsvHeader.KEY).get(CsvHeader.name);
-                if (field instanceof GlobArrayField) {
+                if (field instanceof GlobArrayField<?> globArrayField) {
                     consumers.add(glob -> {
-                        Glob[] orEmpty = glob.getOrEmpty((GlobArrayField<?>) field);
+                        Glob[] orEmpty = glob.getOrEmpty(globArrayField);
                         for (Glob glob1 : orEmpty) {
                             exportGlob.add(lineWriter, header, false);
                             exportGlob.accept(glob1, lineWriter);
                         }
                     });
-                } else if (field instanceof GlobField) {
+                } else if (field instanceof GlobField<?> globField) {
                     consumers.add(glob -> {
                         exportGlob.add(lineWriter, header, false);
-                        exportGlob.accept(glob.get((GlobField<?>) field), lineWriter);
+                        exportGlob.accept(glob.get(globField), lineWriter);
                     });
                 }
             }

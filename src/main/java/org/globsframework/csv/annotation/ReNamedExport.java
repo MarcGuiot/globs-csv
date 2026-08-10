@@ -22,7 +22,7 @@ public class ReNamedExport {
     public static final GlobType TYPE;
 
     @Target(Mapping.class)
-    public static final GlobArrayField names;
+    public static final GlobArrayField<Mapping> names;
 
     public static final StringField defaultValue;
 
