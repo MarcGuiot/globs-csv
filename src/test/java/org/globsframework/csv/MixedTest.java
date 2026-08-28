@@ -3,14 +3,12 @@ package org.globsframework.csv;
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.GlobTypeBuilder;
 import org.globsframework.core.metamodel.GlobTypeBuilderFactory;
-import org.globsframework.core.metamodel.annotations.Target;
 import org.globsframework.core.metamodel.fields.GlobArrayField;
 import org.globsframework.core.metamodel.fields.GlobField;
 import org.globsframework.core.metamodel.fields.IntegerField;
 import org.globsframework.core.metamodel.fields.StringField;
 import org.globsframework.core.model.Glob;
 import org.globsframework.csv.annotation.CsvHeader;
-import org.globsframework.csv.annotation.CsvHeader_;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -64,16 +62,10 @@ public class MixedTest {
     public static class Root {
         public static GlobType TYPE;
 
-        @CsvHeader_("H1")
-        @Target(H1.class)
         public static GlobField<H1> h1;
 
-        @CsvHeader_(value = "H2", firstLineIsHeader = true)
-        @Target(H2.class)
         public static GlobArrayField<H2> h2;
 
-        @CsvHeader_("H3")
-        @Target(H3.class)
         public static GlobField<H3> h3;
 
         static {
@@ -140,16 +132,10 @@ public class MixedTest {
     public class CCMOrderType {
         public static GlobType TYPE;
 
-        @CsvHeader_("CCM")
-        @Target(CCMLineType.class)
         public static GlobField<CCMLineType> order;
 
-        @CsvHeader_("CCL")
-        @Target(CCLLineType.class)
         public static GlobArrayField<CCLLineType> items;
 
-        @CsvHeader_("ADR")
-        @Target(ADRLineType.class)
         public static GlobArrayField<ADRLineType> addresses;
 
         static {

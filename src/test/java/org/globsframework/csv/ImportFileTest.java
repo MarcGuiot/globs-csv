@@ -3,7 +3,6 @@ package org.globsframework.csv;
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.GlobTypeBuilder;
 import org.globsframework.core.metamodel.GlobTypeBuilderFactory;
-import org.globsframework.core.metamodel.annotations.FieldName_;
 import org.globsframework.core.metamodel.fields.*;
 import org.globsframework.core.model.Glob;
 import org.globsframework.csv.annotation.*;
@@ -449,13 +448,10 @@ public class ImportFileTest {
     static public class RenameTestType {
         public static GlobType TYPE;
 
-        @ReNamedExport_(multi = @ReNamedMappingExport_(name = "fi", to = "aa"))
         public static StringField a;
 
-        @ReNamedExport_(multi = @ReNamedMappingExport_(name = "fi", to = "cc"))
         public static StringField b;
 
-        @ReNamedExport_("dd")
         public static StringField d;
 
         static {
@@ -470,19 +466,14 @@ public class ImportFileTest {
     static public class Type {
         public static GlobType TYPE;
 
-        @FieldName_("PRODUCT_ID")
         public static IntegerField ID;
 
-        @ImportEmptyStringHasEmptyStringFormat_(true)
         public static StringField SKU;
 
-        @ExportDateFormat_("yyyyMMdd")
         public static DateField date;
 
-        @ExportDateFormat_("yyyyMMdd HHmmss")
         public static DateTimeField dateTime;
 
-        @ExportDateFormat_(value = "yyyyMMdd", zoneId = "Europe/Paris")
         public static DateTimeField dateTimeWithoutTime;
 
         static {

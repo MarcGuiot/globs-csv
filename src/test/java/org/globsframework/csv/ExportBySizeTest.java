@@ -4,12 +4,13 @@ import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.GlobTypeBuilder;
 import org.globsframework.core.metamodel.GlobTypeBuilderFactory;
 import org.globsframework.core.metamodel.annotations.IsDate;
-import org.globsframework.core.metamodel.annotations.IsDate_;
 import org.globsframework.core.metamodel.fields.*;
 import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.MutableGlob;
 import org.globsframework.core.utils.Ref;
-import org.globsframework.csv.annotation.*;
+import org.globsframework.csv.annotation.ExportColumnSize;
+import org.globsframework.csv.annotation.ExportDateFormat;
+import org.globsframework.csv.annotation.NamedExport;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -115,8 +116,8 @@ public class ExportBySizeTest {
         exportBySize.exportHeader(Data.TYPE, writer);
         exportBySize.export(Stream.of(data1, data2), writer);
         String expected = "name,count,value,dateAsInt,date\n" +
-                "some data,300,3235.14153,2018/01/02,2019/01/02\n" +
-                "some other data,400,235.14153,2017/01/02,2019/01/02\n";
+                          "some data,300,3235.14153,2018/01/02,2019/01/02\n" +
+                          "some other data,400,235.14153,2017/01/02,2019/01/02\n";
         System.out.println(expected);
         System.out.println(writer.toString());
         Assert.assertEquals(expected, writer.toString());
@@ -139,9 +140,9 @@ public class ExportBySizeTest {
         exportBySize.export(Stream.of(data1, data2, data3), writer);
         String expected =
                 "name,count,value,dateAsInt,date\n" +
-                        "some \\ndata,,,,\n" +
-                        "\"some \\n \"\"other ,data\",,,,\n" +
-                        "\"some  ,data\",,,,\n";
+                "some \\ndata,,,,\n" +
+                "\"some \\n \"\"other ,data\",,,,\n" +
+                "\"some  ,data\",,,,\n";
         System.out.println(expected);
         System.out.println(writer.toString());
         Assert.assertEquals(expected, writer.toString());
@@ -178,9 +179,9 @@ public class ExportBySizeTest {
         exportBySize.export(Stream.of(data1, data2, data3), writer);
         String expected =
                 "name,count,dateAsInt,date\n" +
-                        "some \\ndata,,,\n" +
-                        "\"some \\n \"\"other ,data\",,,\n" +
-                        "\"some  ,data\",,,\n";
+                "some \\ndata,,,\n" +
+                "\"some \\n \"\"other ,data\",,,\n" +
+                "\"some  ,data\",,,\n";
         System.out.println(expected);
         System.out.println(writer.toString());
         Assert.assertEquals(expected, writer.toString());
@@ -212,7 +213,7 @@ public class ExportBySizeTest {
         exportBySize.export(Stream.of(data1), writer);
         String expected =
                 "names\n" +
-                        "A,B,C\n";
+                "A,B,C\n";
         Assert.assertEquals(expected, writer.toString());
     }
 
@@ -248,24 +249,14 @@ public class ExportBySizeTest {
     public static class Data {
         public static GlobType TYPE;
 
-        @ExportColumnSize_(10)
-        @NamedExport_("v1")
         public static StringField NAME;
 
-        @ExportColumnSize_(6)
-        @NamedExport_({"v2"})
         public static IntegerField COUNT;
 
-        @ExportColumnSize_(12)
         public static DoubleField VALUE;
 
-        @IsDate_
-        @ExportDateFormat_("YYYY/MM/DD")
-        @ExportColumnSize_(10)
         public static IntegerField DATE_AS_INT;
 
-        @ExportDateFormat_("YYYY/MM/DD")
-        @ExportColumnSize_(10)
         public static DateField DATE;
 
 

@@ -2,15 +2,12 @@ package org.globsframework.csv.annotation;
 
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.GlobTypeBuilder;
-import org.globsframework.core.metamodel.annotations.GlobCreateFromAnnotation;
-import org.globsframework.core.metamodel.annotations.InitUniqueKey;
 import org.globsframework.core.metamodel.fields.BooleanField;
 import org.globsframework.core.metamodel.fields.StringField;
 import org.globsframework.core.metamodel.impl.DefaultGlobTypeBuilder;
 import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.Key;
 import org.globsframework.core.model.KeyBuilder;
-import org.globsframework.core.model.MutableGlob;
 
 public class CsvHeader {
     public static final GlobType TYPE;
@@ -23,22 +20,14 @@ public class CsvHeader {
 
 //    public static StringArrayField header;
 
-    @InitUniqueKey
     public static final Key KEY;
 
     static {
         GlobTypeBuilder typeBuilder = new DefaultGlobTypeBuilder("CsvHeader");
         name = typeBuilder.declareStringField("name");
         firstLineIsHeader = typeBuilder.declareBooleanField("firstLineIsHeader");
-        typeBuilder.register(GlobCreateFromAnnotation.class, annotation -> getMutableGlob((CsvHeader_) annotation));
         TYPE = typeBuilder.build();
         KEY = KeyBuilder.newEmptyKey(TYPE);
-    }
-
-    private static MutableGlob getMutableGlob(CsvHeader_ annotation) {
-        return TYPE.instantiate()
-                .set(name, annotation.value())
-                .set(firstLineIsHeader, annotation.firstLineIsHeader());
     }
 
     public static Glob create(String name) {

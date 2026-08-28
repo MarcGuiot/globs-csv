@@ -3,7 +3,6 @@ package org.globsframework.csv;
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.GlobTypeBuilder;
 import org.globsframework.core.metamodel.GlobTypeBuilderFactory;
-import org.globsframework.core.metamodel.annotations.Target;
 import org.globsframework.core.metamodel.fields.GlobArrayField;
 import org.globsframework.core.metamodel.fields.GlobField;
 import org.globsframework.core.metamodel.fields.IntegerField;
@@ -141,7 +140,6 @@ public class ImportStructuredCsvTest {
         public static StringField a;
         public static StringField b;
 
-        @Target(L4.class)
         public static GlobField<L4> l4;
 
         static {
@@ -176,7 +174,6 @@ public class ImportStructuredCsvTest {
 
         public static StringField aa;
 
-        @Target(L2.class)
         public static GlobArrayField<L2> l2;
 
         static {
@@ -194,7 +191,6 @@ public class ImportStructuredCsvTest {
 
         public static StringField cc;
 
-        @Target(L3.class)
         public static GlobArrayField<L3> l3;
 
         static {

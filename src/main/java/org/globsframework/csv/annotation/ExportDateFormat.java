@@ -2,14 +2,11 @@ package org.globsframework.csv.annotation;
 
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.GlobTypeBuilder;
-import org.globsframework.core.metamodel.annotations.GlobCreateFromAnnotation;
-import org.globsframework.core.metamodel.annotations.InitUniqueKey;
 import org.globsframework.core.metamodel.fields.StringField;
 import org.globsframework.core.metamodel.impl.DefaultGlobTypeBuilder;
 import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.Key;
 import org.globsframework.core.model.KeyBuilder;
-import org.globsframework.core.model.MutableGlob;
 
 public class ExportDateFormat {
     public static final GlobType TYPE;
@@ -18,23 +15,14 @@ public class ExportDateFormat {
 
     public static final StringField ZONE_ID;
 
-    @InitUniqueKey
     public static final Key KEY;
 
     static {
         GlobTypeBuilder typeBuilder = new DefaultGlobTypeBuilder("ExportDateFormat");
         FORMAT = typeBuilder.declareStringField("format");
         ZONE_ID = typeBuilder.declareStringField("zoneId");
-        typeBuilder.register(GlobCreateFromAnnotation.class, annotation -> getMutableGlob((ExportDateFormat_) annotation));
         TYPE = typeBuilder.build();
         KEY = KeyBuilder.newEmptyKey(TYPE);
-    }
-
-    private static MutableGlob getMutableGlob(ExportDateFormat_ annotation) {
-        String zoneId = annotation.zoneId();
-        return TYPE.instantiate()
-                .set(FORMAT, annotation.value())
-                .set(ZONE_ID, zoneId.isEmpty() ? null : zoneId);
     }
 
     public static Glob create(String format) {

@@ -2,16 +2,13 @@ package org.globsframework.csv;
 
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.GlobTypeBuilder;
-import org.globsframework.core.metamodel.annotations.Target;
 import org.globsframework.core.metamodel.fields.GlobArrayField;
 import org.globsframework.core.metamodel.fields.GlobField;
 import org.globsframework.core.metamodel.fields.StringField;
 import org.globsframework.core.metamodel.impl.DefaultGlobTypeBuilder;
 import org.globsframework.core.model.Glob;
 import org.globsframework.csv.annotation.CsvHeader;
-import org.globsframework.csv.annotation.CsvHeader_;
 import org.globsframework.csv.annotation.ExportColumnSize;
-import org.globsframework.csv.annotation.ExportColumnSize_;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -67,14 +64,8 @@ public class MultiTypeFixSizeTest {
     public static class Root {
         public static final GlobType TYPE;
 
-        @Target(TypeA.class)
-        @CsvHeader_("TYPE_A")
-        @ExportColumnSize_(6)
         public static final GlobField<TypeA> typeA;
 
-        @Target(TypeB.class)
-        @CsvHeader_("TYPE_B")
-        @ExportColumnSize_(6)
         public static final GlobArrayField<TypeB> typeB;
 
         static {
@@ -88,10 +79,8 @@ public class MultiTypeFixSizeTest {
     public static class TypeA {
         public static GlobType TYPE;
 
-        @ExportColumnSize_(3)
         public static StringField val1;
 
-        @ExportColumnSize_(3)
         public static StringField val2;
 
         static {
@@ -105,10 +94,8 @@ public class MultiTypeFixSizeTest {
     public static class TypeB {
         public static final GlobType TYPE;
 
-        @ExportColumnSize_(4)
         public static final StringField val1;
 
-        @ExportColumnSize_(4)
         public static final StringField val2;
 
         static {

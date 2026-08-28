@@ -2,21 +2,16 @@ package org.globsframework.csv.model;
 
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.GlobTypeBuilder;
-import org.globsframework.core.metamodel.annotations.Target;
-import org.globsframework.core.metamodel.annotations.Targets;
 import org.globsframework.core.metamodel.fields.*;
 import org.globsframework.core.metamodel.impl.DefaultGlobTypeBuilder;
 import org.globsframework.core.model.Glob;
 import org.globsframework.json.annottations.IsJsonContent;
-import org.globsframework.json.annottations.IsJsonContent_;
 
-import java.util.List;
 import java.util.function.Supplier;
 
 public class FieldMappingType {
     public static final GlobType TYPE;
 
-    @Targets({FromType.class, TemplateType.class, SumData.class, OverrideData.class, MappingData.class, JoinType.class})
     public static final GlobUnionField from;
 
     public static final StringField to;
@@ -38,7 +33,6 @@ public class FieldMappingType {
     public static class SumData {
         public static final GlobType TYPE;
 
-        @Target(FromType.class)
         public static final GlobArrayField<FromType> from;
 
         static {
@@ -53,10 +47,8 @@ public class FieldMappingType {
 
         public static final StringField name;
 
-        @Target(FromType.class)
         public static final GlobArrayField<FromType> inputField;
 
-        @IsJsonContent_
         public static final StringField additionalParams;
 
         static {
@@ -77,7 +69,6 @@ public class FieldMappingType {
 
         public static final StringField toStringFormater;
 
-        @Target(FormatType.class)
         public static final GlobArrayField<FormatType> formater;
 
         static {
@@ -94,7 +85,6 @@ public class FieldMappingType {
 
         public static final GlobType TYPE;
 
-        @Target(FromType.class)
         public static final GlobField<FromType> from;
 
         public static final StringField renameTo; // par defaut identique a from
@@ -110,7 +100,6 @@ public class FieldMappingType {
     public static class JoinType {
         public static final GlobType TYPE;
 
-        @Target(FromType.class)
         public static final GlobArrayField<FromType> from;
 
         public static final StringField separator;
@@ -138,7 +127,6 @@ public class FieldMappingType {
     public static class TemplateType {
         public static final GlobType TYPE;
 
-        @Target(RenamedType.class)
         public static final GlobArrayField<RenamedType> from;
 
         public static final StringField template;
@@ -178,7 +166,6 @@ public class FieldMappingType {
 
         public static final StringField mappingName;
 
-        @Target(FromType.class)
         public static final GlobField<FromType> from;
 
         public static final BooleanField copyValueIfNoMapping;
@@ -187,7 +174,6 @@ public class FieldMappingType {
 
         public static final StringField defaultEmptyValue;
 
-        @Target(KeyValue.class)
         public static final GlobArrayField<KeyValue> mapping;
 
         static {

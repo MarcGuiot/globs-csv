@@ -2,9 +2,6 @@ package org.globsframework.csv.annotation;
 
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.GlobTypeBuilder;
-import org.globsframework.core.metamodel.annotations.GlobCreateFromAnnotation;
-import org.globsframework.core.metamodel.annotations.InitUniqueKey;
-import org.globsframework.core.metamodel.annotations.Target;
 import org.globsframework.core.metamodel.fields.Field;
 import org.globsframework.core.metamodel.fields.GlobArrayField;
 import org.globsframework.core.metamodel.fields.StringField;
@@ -12,39 +9,25 @@ import org.globsframework.core.metamodel.impl.DefaultGlobTypeBuilder;
 import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.Key;
 import org.globsframework.core.model.KeyBuilder;
-import org.globsframework.core.model.MutableGlob;
 import org.globsframework.core.utils.Strings;
 
-import java.util.Arrays;
 import java.util.Optional;
 
 public class ReNamedExport {
     public static final GlobType TYPE;
 
-    @Target(Mapping.class)
     public static final GlobArrayField<Mapping> names;
 
     public static final StringField defaultValue;
 
-    @InitUniqueKey
     public static final Key KEY;
 
     static {
         GlobTypeBuilder typeBuilder = new DefaultGlobTypeBuilder("ReNamedExport");
         names = typeBuilder.declareGlobArrayField("names", () -> Mapping.TYPE);
         defaultValue = typeBuilder.declareStringField("defaultValue");
-        typeBuilder.register(GlobCreateFromAnnotation.class,
-                annotation -> getMutableGlob((ReNamedExport_) annotation));
         TYPE = typeBuilder.build();
         KEY = KeyBuilder.newEmptyKey(TYPE);
-    }
-
-    private static MutableGlob getMutableGlob(ReNamedExport_ annotation) {
-        return TYPE.instantiate()
-                .set(names, Arrays.stream(annotation.multi())
-                        .map(Mapping::create)
-                        .toArray(Glob[]::new))
-                .set(defaultValue, annotation.value());
     }
 
     public static String getHeaderName(String name, Field field) {
@@ -71,11 +54,11 @@ public class ReNamedExport {
         return create(defaultValue, null);
     }
 
-    public static Glob create(Glob ...glob) {
+    public static Glob create(Glob... glob) {
         return create("", glob);
     }
 
-    public static Glob create(String defaultValue, Glob ...mapping) {
+    public static Glob create(String defaultValue, Glob... mapping) {
         return TYPE.instantiate()
                 .set(ReNamedExport.defaultValue, defaultValue)
                 .set(names, mapping);
@@ -93,13 +76,6 @@ public class ReNamedExport {
             name = typeBuilder.declareStringField("name");
             renamed = typeBuilder.declareStringField("renamed");
             TYPE = typeBuilder.build();
-        }
-
-        public static Glob create(ReNamedMappingExport_ mapping) {
-            return TYPE.instantiate()
-                    .set(name, mapping.name())
-                    .set(renamed, mapping.to())
-                    ;
         }
 
         public static Glob create(String name, String renamed) {

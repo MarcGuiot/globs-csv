@@ -3,13 +3,11 @@ package org.globsframework.csv;
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.GlobTypeBuilder;
 import org.globsframework.core.metamodel.GlobTypeBuilderFactory;
-import org.globsframework.core.metamodel.annotations.Target;
 import org.globsframework.core.metamodel.fields.GlobArrayField;
 import org.globsframework.core.metamodel.fields.GlobField;
 import org.globsframework.core.metamodel.fields.StringField;
 import org.globsframework.core.model.Glob;
 import org.globsframework.csv.annotation.CsvHeader;
-import org.globsframework.csv.annotation.CsvHeader_;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -104,12 +102,8 @@ public class MultiTypeTest {
     public static class Root {
         public static GlobType TYPE;
 
-        @Target(TypeA.class)
-        @CsvHeader_("TYPE_A")
         public static GlobField<TypeA> typeA;
 
-        @Target(TypeB.class)
-        @CsvHeader_("TYPE_B")
         public static GlobArrayField<TypeB> typeB;
 
         static {
