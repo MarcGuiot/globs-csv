@@ -58,34 +58,32 @@ The root type describes the nesting, `CsvHeader` the prefix, `ExportColumnSize` 
 
 ```java
 public static class Root {
-    public static GlobType TYPE;
+    public static final GlobType TYPE;
 
-    @Target(TypeA.class)
-    @CsvHeader_("TYPE_A")
-    @ExportColumnSize_(6)
-    public static GlobField typeA;
-
-    @Target(TypeB.class)
-    @CsvHeader_("TYPE_B")
-    @ExportColumnSize_(6)
-    public static GlobArrayField typeB;
+    public static final GlobField<TypeA> typeA;
+    public static final GlobArrayField<TypeB> typeB;
 
     static {
-        GlobTypeLoaderFactory.create(Root.class).load();
+        GlobTypeBuilder builder = GlobTypeBuilderFactory.create("Root");
+        typeA = builder.declareGlobField("typeA", () -> TypeA.TYPE,
+                CsvHeader.create("TYPE_A"), ExportColumnSize.create(6));
+        typeB = builder.declareGlobArrayField("typeB", () -> TypeB.TYPE,
+                CsvHeader.create("TYPE_B"), ExportColumnSize.create(6));
+        TYPE = builder.build();
     }
 }
 
 public static class TypeA {
-    public static GlobType TYPE;
+    public static final GlobType TYPE;
 
-    @ExportColumnSize_(3)
-    public static StringField val1;
-
-    @ExportColumnSize_(3)
-    public static StringField val2;
+    public static final StringField val1;
+    public static final StringField val2;
 
     static {
-        GlobTypeLoaderFactory.create(TypeA.class).load();
+        GlobTypeBuilder builder = GlobTypeBuilderFactory.create("TypeA");
+        val1 = builder.declareStringField("val1", ExportColumnSize.create(3));
+        val2 = builder.declareStringField("val2", ExportColumnSize.create(3));
+        TYPE = builder.build();
     }
 }
 ```
